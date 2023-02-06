@@ -52,7 +52,7 @@ def prepare_aishell1mix(
 
     if not os.path.exists(aishell1_dir):
 
-        print("Download Aishell1 into %s" % datapath)
+        print(f"Download Aishell1 into {datapath}")
         urlretrieve(
             "https://us.openslr.org/resources/33/data_aishell.tgz",
             os.path.join(datapath, "data_aishell.tgz"),
@@ -71,7 +71,7 @@ def prepare_aishell1mix(
 
     if not os.path.exists(wham_dir):
 
-        print("Download Wham noise dataset into %s" % datapath)
+        print(f"Download Wham noise dataset into {datapath}")
         urlretrieve(
             "https://storage.googleapis.com/whisper-public/wham_noise.zip",
             os.path.join(datapath, "wham_noise.zip"),
@@ -161,26 +161,25 @@ def prepare_aishell1mix(
     if skip_prep:
         return
 
-    if "Aishell1" in aishell1mix_outdir:
-        # Aishell1 Mix2/3 datasets
-        if n_spks == 2:
-            assert (
-                "Aishell1Mix2" in aishell1mix_outdir
-            ), "Inconsistent number of speakers and datapath"
-            create_aishell1mix2_csv(
-                aishell1mix_outdir, savepath, addnoise=aishell1mix_addnoise
-            )
-        elif n_spks == 3:
-            assert (
-                "Aishell1Mix3" in aishell1mix_outdir
-            ), "Inconsistent number of speakers and datapath"
-            create_aishell1mix3_csv(
-                aishell1mix_outdir, savepath, addnoise=aishell1mix_addnoise
-            )
-        else:
-            raise ValueError("Unsupported Number of Speakers")
-    else:
+    if "Aishell1" not in aishell1mix_outdir:
         raise ValueError("Unsupported Dataset")
+    # Aishell1 Mix2/3 datasets
+    if n_spks == 2:
+        assert (
+            "Aishell1Mix2" in aishell1mix_outdir
+        ), "Inconsistent number of speakers and datapath"
+        create_aishell1mix2_csv(
+            aishell1mix_outdir, savepath, addnoise=aishell1mix_addnoise
+        )
+    elif n_spks == 3:
+        assert (
+            "Aishell1Mix3" in aishell1mix_outdir
+        ), "Inconsistent number of speakers and datapath"
+        create_aishell1mix3_csv(
+            aishell1mix_outdir, savepath, addnoise=aishell1mix_addnoise
+        )
+    else:
+        raise ValueError("Unsupported Number of Speakers")
 
 
 def create_aishell1mix2_csv(
@@ -228,9 +227,7 @@ def create_aishell1mix2_csv(
             "noise_wav_opts",
         ]
 
-        with open(
-            savepath + "/aishell1mix2_" + set_type + ".csv", "w"
-        ) as csvfile:
+        with open(f"{savepath}/aishell1mix2_{set_type}.csv", "w") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for i, (mix_path, s1_path, s2_path, noise_path) in enumerate(
@@ -306,9 +303,7 @@ def create_aishell1mix3_csv(
             "noise_wav_opts",
         ]
 
-        with open(
-            savepath + "/aishell1mix3_" + set_type + ".csv", "w"
-        ) as csvfile:
+        with open(f"{savepath}/aishell1mix3_{set_type}.csv", "w") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for (

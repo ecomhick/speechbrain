@@ -96,15 +96,13 @@ class W2V2Brain(sb.core.Brain):
         if (
             "diversity_loss" in forward_outputs
         ):  # only quantised model has these
-            objectives.update(
-                {
-                    "diversity_loss": forward_outputs["diversity_loss"],
-                    "prob_perplex": forward_outputs["prob_perplex"],
-                    "code_perplex": forward_outputs["code_perplex"],
-                    "num_vars": forward_outputs["num_vars"],
-                    "temp": forward_outputs["temp"],
-                }
-            )
+            objectives |= {
+                "diversity_loss": forward_outputs["diversity_loss"],
+                "prob_perplex": forward_outputs["prob_perplex"],
+                "code_perplex": forward_outputs["code_perplex"],
+                "num_vars": forward_outputs["num_vars"],
+                "temp": forward_outputs["temp"],
+            }
 
         # Compute the loss given the original equation from the paper
         loss = objectives["loss"]

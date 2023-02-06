@@ -54,13 +54,13 @@ def prepare_libritts(
         return
 
     extension = [".wav"]  # The expected extension for audio files
-    wav_list = list()  # Stores all audio file paths for the dataset
+    wav_list = []
 
     # For every subset of the dataset, if it doesn't exist, downloads it and sets flag to resample the subset
     for subset_name in libritts_subsets:
 
         subset_folder = os.path.join(data_folder, subset_name)
-        subset_archive = os.path.join(subset_folder, subset_name + ".tar.gz")
+        subset_archive = os.path.join(subset_folder, f"{subset_name}.tar.gz")
 
         subset_data = os.path.join(subset_folder, "LibriTTS")
         if not check_folders(subset_data):
@@ -127,7 +127,7 @@ def create_json(wav_list, json_file, sample_rate):
 
         # Gets the path for the  text files and extracts the input text
         original_text_path = os.path.join(
-            "/", *path_parts[:-1], uttid + ".original.txt"
+            "/", *path_parts[:-1], f"{uttid}.original.txt"
         )
         with open(original_text_path) as f:
             original_text = f.read()
@@ -151,7 +151,7 @@ def create_json(wav_list, json_file, sample_rate):
             "wav": relative_path,
             "spk_id": spk_id,
             "label": original_text,
-            "segment": True if "train" in json_file else False,
+            "segment": "train" in json_file,
         }
 
     # Writes the dictionary to the json file
@@ -171,10 +171,7 @@ def skip(*filenames):
         if True, the preparation phase can be skipped.
         if False, it must be done.
     """
-    for filename in filenames:
-        if not os.path.isfile(filename):
-            return False
-    return True
+    return all(os.path.isfile(filename) for filename in filenames)
 
 
 def split_sets(wav_list, split_ratio):
@@ -202,8 +199,8 @@ def split_sets(wav_list, split_ratio):
 
     for i, split in enumerate(splits):
         n_snts = int(tot_snts * split_ratio[i] / tot_split)
-        data_split[split] = wav_list[0:n_snts]
-        del wav_list[0:n_snts]
+        data_split[split] = wav_list[:n_snts]
+        del wav_list[:n_snts]
     data_split["test"] = wav_list
 
     return data_split
@@ -211,10 +208,7 @@ def split_sets(wav_list, split_ratio):
 
 def check_folders(*folders):
     """Returns False if any passed folder does not exist."""
-    for folder in folders:
-        if not os.path.exists(folder):
-            return False
-    return True
+    return all(os.path.exists(folder) for folder in folders)
 
 
 if __name__ == "__main__":

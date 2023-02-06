@@ -95,11 +95,7 @@ def check_already_generated(md_dir, aishell1_dir):
     actual_aishell1_dirs = set(next(os.walk(aishell1_dir))[1]) & set(
         original_aishell1_dirs
     )
-    # Actual directories that haven't already been processed
-    not_already_processed_directories = list(
-        set(actual_aishell1_dirs) - set(already_generated_csv)
-    )
-    return not_already_processed_directories
+    return list(set(actual_aishell1_dirs) - set(already_generated_csv))
 
 
 def create_aishell1_dataframe(

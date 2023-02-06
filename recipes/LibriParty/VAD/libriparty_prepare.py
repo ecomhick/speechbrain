@@ -58,18 +58,15 @@ def clean_dataframe(df):
 
 def create_dataframe(df, json):
     sessions = list(json.keys())
-    session_id = 0
-    for session in sessions:
+    for session_id, session in enumerate(sessions):
         sub_section = list(json[session].keys())
         for sub in sub_section:
-            if sub != "noises" and sub != "background":
+            if sub not in ["noises", "background"]:
                 length = len(json[session][sub])
                 for i in range(length):
                     temp_dict = json[session][sub][i]
                     temp_dict["session_id"] = session_id
                     df = df.append([temp_dict])
-        session_id += 1
-
     df = clean_dataframe(df)
     return df
 
@@ -105,13 +102,12 @@ def create_json_structure(df, data_folder):
         )
         df_session = df[df["session_id"] == session_id]
         speech = list(zip(df_session["start"], df_session["stop"]))
-        json["session_" + str(session_id)] = {"file": path, "speech": speech}
+        json[f"session_{str(session_id)}"] = {"file": path, "speech": speech}
     return json
 
 
 def duplicates(lst, item):
-    dup = [i for i, x in enumerate(lst) if x == item]
-    return dup
+    return [i for i, x in enumerate(lst) if x == item]
 
 
 def create_window_splits(values, compare_list, reference_list, window_size):
@@ -140,12 +136,8 @@ def create_window_splits(values, compare_list, reference_list, window_size):
 def remove_duplicates_sort(reference_list, compare_list):
     seq_timing = []
     for sub in reference_list:
-        for pair in sub:
-            seq_timing.append(pair)
-    res = []
-    # Removing duplicates in the list by comparing
-    for i in compare_list:
-        res.append(duplicates(compare_list, i))
+        seq_timing.extend(iter(sub))
+    res = [duplicates(compare_list, i) for i in compare_list]
     # Sort it by using the ordered dictionary
     unq_lst = OrderedDict()
     for e in res:
@@ -155,9 +147,8 @@ def remove_duplicates_sort(reference_list, compare_list):
 
 
 def add_example(file_path, speech, window, example, sample_rate, json_dataset):
-    example = "example_" + str(example)
-    json_dataset[example] = {}
-    json_dataset[example]["wav"] = {}
+    example = f"example_{str(example)}"
+    json_dataset[example] = {"wav": {}}
     json_dataset[example]["wav"]["file"] = file_path
     json_dataset[example]["wav"]["start"] = window[0] * sample_rate
     json_dataset[example]["wav"]["stop"] = window[1] * sample_rate
@@ -187,7 +178,7 @@ def create_json_dataset(dic, sample_rate, window_size):
             )
         speech_sequence_cleaned = []
         overlap = []
-        for i, values in enumerate(unique_list):
+        for values in unique_list:
             if len(values) == 1:
                 speech_sequence_cleaned.append(seq_timing[values[0]])
                 json_dataset = json_dataset = add_example(
@@ -198,7 +189,6 @@ def create_json_dataset(dic, sample_rate, window_size):
                     sample_rate,
                     json_dataset,
                 )
-                example_counter += 1
             else:
                 for iter in values:
                     overlap.append(seq_timing[iter])
@@ -212,7 +202,7 @@ def create_json_dataset(dic, sample_rate, window_size):
                 )
                 speech_sequence_cleaned.append(overlap)
                 overlap = []
-                example_counter += 1
+            example_counter += 1
             dic[sessions]["speech_segments"] = speech_sequence_cleaned
     return json_dataset
 

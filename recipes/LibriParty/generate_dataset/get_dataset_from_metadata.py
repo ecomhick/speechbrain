@@ -7,6 +7,7 @@ Mirco Ravanelli, 2020
 """
 
 
+
 import os
 import sys
 import speechbrain as sb
@@ -32,15 +33,15 @@ if not os.path.exists(metadata_folder):
 # Download meta data from the web
 download_file(
     URL_METADATA,
-    metadata_folder + "/meta.zip",
+    f"{metadata_folder}/meta.zip",
     unpack=True,
     dest_unpack=metadata_folder,
 )
 
 for data_split in ["train", "dev", "eval"]:
-    with open(os.path.join(metadata_folder, data_split + ".json"), "r") as f:
+    with open(os.path.join(metadata_folder, f"{data_split}.json"), "r") as f:
         metadata = json.load(f)
-    print("Creating data for {} set".format(data_split))
+    print(f"Creating data for {data_split} set")
     c_folder = os.path.join(params["out_folder"], data_split)
     os.makedirs(c_folder, exist_ok=True)
     for sess in tqdm(metadata.keys()):

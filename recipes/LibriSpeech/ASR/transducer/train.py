@@ -326,18 +326,15 @@ def dataio_prepare(hparams):
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
-        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
-    )
+            "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
+        )
     def text_pipeline(wrd):
         yield wrd
         tokens_list = tokenizer.encode_as_ids(wrd)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["blank_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["blank_index"]])
-        yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
+        yield torch.LongTensor([hparams["blank_index"]] + (tokens_list))
+        yield torch.LongTensor(tokens_list + [hparams["blank_index"]])
+        yield torch.LongTensor(tokens_list)
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
@@ -419,7 +416,7 @@ if __name__ == "__main__":
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+            hparams["output_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
             test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]

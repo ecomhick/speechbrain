@@ -145,10 +145,7 @@ def skip(splits, save_folder, conf):
     if skip is True:
         if os.path.isfile(save_opt):
             opts_old = load_pkl(save_opt)
-            if opts_old == conf:
-                skip = True
-            else:
-                skip = False
+            skip = opts_old == conf
         else:
             skip = False
     return skip
@@ -200,24 +197,22 @@ def split_sets(data_folder, splits, split_ratio):
     for i, split in enumerate(splits):
         data_split[split] = []
         for j in range(len(index_for_sessions)):
-            if split == "train":
+            if (
+                split != "test"
+                and split != "train"
+                and split == "valid"
+                and "test" in splits
+                or split != "test"
+                and split == "train"
+            ):
                 random.shuffle(index_for_sessions[j])
-                n_snts = int(session_len[j] * split_ratio[i] / sum(split_ratio))
-                data_split[split].extend(index_for_sessions[j][0:n_snts])
-                del index_for_sessions[j][0:n_snts]
-            if split == "valid":
-                if "test" in splits:
-                    random.shuffle(index_for_sessions[j])
-                    n_snts = int(
-                        session_len[j] * split_ratio[i] / sum(split_ratio)
-                    )
-                    data_split[split].extend(index_for_sessions[j][0:n_snts])
-                    del index_for_sessions[j][0:n_snts]
-                else:
-                    data_split[split].extend(index_for_sessions[j])
-            if split == "test":
+                n_snts = int(
+                    session_len[j] * split_ratio[i] / sum(split_ratio)
+                )
+                data_split[split].extend(index_for_sessions[j][:n_snts])
+                del index_for_sessions[j][:n_snts]
+            elif split != "test" and split == "valid" or split == "test":
                 data_split[split].extend(index_for_sessions[j])
-
     return data_split, meta_csv
 
 
@@ -245,11 +240,7 @@ def prepare_json(seg_lst, json_file, wavs_folder, csv_reader):
         id = list(csv_reader)[index][0]
         wav = os.path.join(wavs_folder, f"{id}.wav")
         label = list(csv_reader)[index][2]
-        json_dict[id] = {
-            "wav": wav,
-            "label": label,
-            "segment": True if "train" in json_file else False,
-        }
+        json_dict[id] = {"wav": wav, "label": label, "segment": "train" in json_file}
 
     # Writing the dictionary to the json file
     with open(json_file, mode="w") as json_f:

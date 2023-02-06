@@ -46,9 +46,8 @@ class ASR(sb.core.Brain):
         tokens_bos, _ = batch.tokens_bos
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augmentation"):
+            wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
         feats = self.modules.wav2vec2(wavs, wav_lens)
@@ -107,9 +106,11 @@ class ASR(sb.core.Brain):
                     self.scaler.unscale_(self.wav2vec_optimizer)
                 self.scaler.unscale_(self.model_optimizer)
                 if self.check_gradients(loss):
-                    if not self.hparams.wav2vec2.freeze:
-                        if self.optimizer_step >= self.hparams.warmup_steps:
-                            self.scaler.step(self.wav2vec_optimizer)
+                    if (
+                        not self.hparams.wav2vec2.freeze
+                        and self.optimizer_step >= self.hparams.warmup_steps
+                    ):
+                        self.scaler.step(self.wav2vec_optimizer)
                     self.scaler.step(self.model_optimizer)
                 self.scaler.update()
                 self.zero_grad()
@@ -126,9 +127,11 @@ class ASR(sb.core.Brain):
                 (loss / self.grad_accumulation_factor).backward()
             if should_step:
                 if self.check_gradients(loss):
-                    if not self.hparams.wav2vec2.freeze:
-                        if self.optimizer_step >= self.hparams.warmup_steps:
-                            self.wav2vec_optimizer.step()
+                    if (
+                        not self.hparams.wav2vec2.freeze
+                        and self.optimizer_step >= self.hparams.warmup_steps
+                    ):
+                        self.wav2vec_optimizer.step()
                     self.model_optimizer.step()
                 self.zero_grad()
                 self.optimizer_step += 1
@@ -289,17 +292,14 @@ def dataio_prepare(hparams, tokenizer):
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
-        "tokens_list", "tokens_bos", "tokens_eos", "tokens"
-    )
+            "tokens_list", "tokens_bos", "tokens_eos", "tokens"
+        )
     def text_pipeline(wrd):
         tokens_list = tokenizer.sp.encode_as_ids(wrd)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
+        yield torch.LongTensor([hparams["bos_index"]] + (tokens_list))
+        yield torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        yield torch.LongTensor(tokens_list)
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 

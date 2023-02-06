@@ -145,10 +145,9 @@ def initialize_targets(wav, sample_rate, time_resolution):
     "Initializes the targets."
     target_downsampling = sample_rate * time_resolution
     target_len = int(wav.shape[1] / (target_downsampling))
-    targets = torch.zeros(
+    return torch.zeros(
         (wav.shape[0], target_len, wav.shape[2]), device=wav.device
     )
-    return targets
 
 
 def get_samples_from_datasets(datasets, wav):

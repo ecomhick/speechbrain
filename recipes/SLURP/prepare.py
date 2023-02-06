@@ -9,8 +9,8 @@ try:
 except ImportError:
     err_msg = (
         "The optional dependency pandas must be installed to run this recipe.\n"
+        + "Install using `pip install pandas`.\n"
     )
-    err_msg += "Install using `pip install pandas`.\n"
     raise ImportError(err_msg)
 
 
@@ -55,20 +55,18 @@ def prepare_SLURP(
             print("Extracting slurp_real...")
             shutil.unpack_archive(zip_location, data_folder)
 
+    id = 0
     splits = [
         "train_real",
         "train_synthetic",
         "devel",
         "test",
     ]
-    id = 0
     for split in splits:
-        new_filename = (
-            os.path.join(save_folder, split) + "-type=%s.csv" % slu_type
-        )
+        new_filename = f"{os.path.join(save_folder, split)}-type={slu_type}.csv"
         if os.path.exists(new_filename):
             continue
-        print("Preparing %s..." % new_filename)
+        print(f"Preparing {new_filename}...")
 
         IDs = []
         duration = []
@@ -85,17 +83,10 @@ def prepare_SLURP(
         transcript_format = []
         transcript_opts = []
 
-        jsonl_path = os.path.join(data_folder, split + ".jsonl")
+        jsonl_path = os.path.join(data_folder, f"{split}.jsonl")
         if not os.path.isfile(jsonl_path):
-            if split == "train_real":
-                url_split = "train"
-            else:
-                url_split = split
-            url = (
-                "https://github.com/pswietojanski/slurp/raw/master/dataset/slurp/"
-                + url_split
-                + ".jsonl"
-            )
+            url_split = "train" if split == "train_real" else split
+            url = f"https://github.com/pswietojanski/slurp/raw/master/dataset/slurp/{url_split}.jsonl"
             download_file(url, jsonl_path, unpack=False)
 
         with jsonlines.open(jsonl_path) as reader:
@@ -121,10 +112,7 @@ def prepare_SLURP(
                     entities.append({"type": type, "filler": filler})
                 for recording in obj["recordings"]:
                     IDs.append(id)
-                    if "synthetic" in split:
-                        audio_folder = "slurp_synth/"
-                    else:
-                        audio_folder = "slurp_real/"
+                    audio_folder = "slurp_synth/" if "synthetic" in split else "slurp_real/"
                     path = os.path.join(
                         data_folder, audio_folder, recording["file"]
                     )
@@ -167,5 +155,5 @@ def prepare_SLURP(
         df.to_csv(new_filename, index=False)
 
     # Merge train splits
-    train_splits = [split + "-type=%s.csv" % slu_type for split in train_splits]
-    merge_csvs(save_folder, train_splits, "train-type=%s.csv" % slu_type)
+    train_splits = [f"{split}-type={slu_type}.csv" for split in train_splits]
+    merge_csvs(save_folder, train_splits, f"train-type={slu_type}.csv")

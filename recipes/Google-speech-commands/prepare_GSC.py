@@ -9,6 +9,7 @@ David Raby-Pepin 2021
 
 """
 
+
 import os
 from os import walk
 import glob
@@ -27,8 +28,8 @@ try:
 except ImportError:
     err_msg = (
         "The optional dependency pandas must be installed to run this recipe.\n"
+        + "Install using `pip install pandas`.\n"
     )
-    err_msg += "Install using `pip install pandas`.\n"
     raise ImportError(err_msg)
 
 logger = logging.getLogger(__name__)
@@ -196,9 +197,7 @@ def prepare_GSC(
                 filename, validation_percentage, testing_percentage
             )
 
-            splits[split]["ID"].append(
-                command + "/" + re.sub(r".wav", "", filename)
-            )
+            splits[split]["ID"].append(f"{command}/" + re.sub(r".wav", "", filename))
 
             # We know that all recordings are 1 second long (i.e.16000 frames). No need to compute the duration.
             splits[split]["duration"].append(1.0)
@@ -229,7 +228,7 @@ def prepare_GSC(
         )
 
     for split in splits:
-        new_filename = os.path.join(save_folder, split) + ".csv"
+        new_filename = f"{os.path.join(save_folder, split)}.csv"
         new_df = pd.DataFrame(splits[split])
         new_df.to_csv(new_filename, index=False)
 
@@ -283,12 +282,11 @@ def which_set(filename, validation_percentage, testing_percentage):
         int(hash_name_hashed, 16) % (MAX_NUM_WAVS_PER_CLASS + 1)
     ) * (100.0 / MAX_NUM_WAVS_PER_CLASS)
     if percentage_hash < validation_percentage:
-        result = "valid"
+        return "valid"
     elif percentage_hash < (testing_percentage + validation_percentage):
-        result = "test"
+        return "test"
     else:
-        result = "train"
-    return result
+        return "train"
 
 
 def generate_silence_data(
@@ -314,15 +312,10 @@ def generate_silence_data(
 
         # Fetch all background noise wav files used to generate silence samples
         search_path = os.path.join(data_folder, "_background_noise_", "*.wav")
-        silence_paths = []
-        for wav_path in glob.glob(search_path):
-            silence_paths.append(wav_path)
-
+        silence_paths = list(glob.glob(search_path))
         # Generate random silence samples
         # Assumes that the pytorch seed has been defined in the HyperPyYaml file
-        num_silence_samples_per_path = int(
-            num_silence_samples / len(silence_paths)
-        )
+        num_silence_samples_per_path = num_silence_samples // len(silence_paths)
         for silence_path in silence_paths:
             signal = read_audio(silence_path)
             random_starts = (
@@ -338,7 +331,7 @@ def generate_silence_data(
                 splits[split]["ID"].append(
                     re.sub(
                         r".wav",
-                        "/" + str(random_start) + "_" + str(i),
+                        f"/{str(random_start)}_{str(i)}",
                         re.sub(r".+?(?=_background_noise_)", "", silence_path),
                     )
                 )

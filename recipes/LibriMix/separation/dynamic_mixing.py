@@ -43,13 +43,13 @@ def build_spk_hashtable_librimix(hparams):
         # e.g. LibriSpeech/train-clean-100/441/128988/441-128988-0014.flac
         # id of speaker is 441 utterance is 128988-0014
 
-        if spk_id not in spk_hashtable.keys():
-            spk_hashtable[spk_id] = [utt]
-        else:
+        if spk_id in spk_hashtable:
             spk_hashtable[spk_id].append(utt)
 
+        else:
+            spk_hashtable[spk_id] = [utt]
     # calculate weights for each speaker ( len of list of utterances)
-    spk_weights = [len(spk_hashtable[x]) for x in spk_hashtable.keys()]
+    spk_weights = [len(spk_hashtable[x]) for x in spk_hashtable]
 
     return spk_hashtable, spk_weights
 
@@ -65,18 +65,14 @@ def get_wham_noise_filenames(hparams):
             noise_path = "wav16k/min/train-360/noise/"
         else:
             raise ValueError("Unsupported Sampling Rate")
+    elif hparams["sample_rate"] == 8000:
+        noise_path = "wav8k/min/tr/noise/"
+    elif hparams["sample_rate"] == 16000:
+        noise_path = "wav16k/min/tr/noise/"
     else:
-        if hparams["sample_rate"] == 8000:
-            noise_path = "wav8k/min/tr/noise/"
-        elif hparams["sample_rate"] == 16000:
-            noise_path = "wav16k/min/tr/noise/"
-        else:
-            raise ValueError("Unsupported Sampling Rate")
+        raise ValueError("Unsupported Sampling Rate")
 
-    noise_files = glob.glob(
-        os.path.join(hparams["data_folder"], noise_path, "*.wav")
-    )
-    return noise_files
+    return glob.glob(os.path.join(hparams["data_folder"], noise_path, "*.wav"))
 
 
 def dynamic_mix_data_prep_librimix(hparams):
@@ -96,7 +92,7 @@ def dynamic_mix_data_prep_librimix(hparams):
     print("Building the speaker hashtable for dynamic mixing")
     spk_hashtable, spk_weights = build_spk_hashtable_librimix(hparams)
 
-    spk_list = [x for x in spk_hashtable.keys()]
+    spk_list = list(spk_hashtable.keys())
     spk_weights = [x / sum(spk_weights) for x in spk_weights]
 
     if hparams["use_wham_noise"]:
@@ -104,11 +100,11 @@ def dynamic_mix_data_prep_librimix(hparams):
 
     @sb.utils.data_pipeline.takes("mix_wav")
     @sb.utils.data_pipeline.provides(
-        "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"
-    )
+            "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"
+        )
     def audio_pipeline(
-        mix_wav,
-    ):  # this is dummy --> it means one epoch will be same as without dynamic mixing
+            mix_wav,
+        ):    # this is dummy --> it means one epoch will be same as without dynamic mixing
         """
         This audio pipeline defines the compute graph for dynamic mixing
         """
@@ -191,15 +187,9 @@ def dynamic_mix_data_prep_librimix(hparams):
 
         # check for clipping
         max_amp_insig = mixture.abs().max().item()
-        if max_amp_insig > MAX_AMP:
-            weight = MAX_AMP / max_amp_insig
-        else:
-            weight = 1
-
+        weight = MAX_AMP / max_amp_insig if max_amp_insig > MAX_AMP else 1
         sources = weight * sources
-        mixture = weight * mixture
-
-        yield mixture
+        yield weight * mixture
         for i in range(hparams["num_spks"]):
             yield sources[i]
 
@@ -208,8 +198,7 @@ def dynamic_mix_data_prep_librimix(hparams):
             yield None
 
         if hparams["use_wham_noise"]:
-            noise = noise * weight
-            yield noise
+            yield noise * weight
         else:
             yield None
 

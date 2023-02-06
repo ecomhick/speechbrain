@@ -101,9 +101,7 @@ class Tacotron2Brain(sb.Brain):
         self.last_batch = effective_batch
         # Hold on to a sample (for logging)
         self._remember_sample(effective_batch, predictions)
-        # Compute the loss
-        loss = self._compute_loss(predictions, effective_batch, stage)
-        return loss
+        return self._compute_loss(predictions, effective_batch, stage)
 
     def _compute_loss(self, predictions, batch, stage):
         """Computes the value of the loss function and updates stats
@@ -272,11 +270,10 @@ class Tacotron2Brain(sb.Brain):
                 if self.hparams.keep_checkpoint_interval is not None
                 else None,
             )
-            output_progress_sample = (
+            if output_progress_sample := (
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0
-            )
-            if output_progress_sample:
+            ):
                 self.run_inference_sample()
                 self.hparams.progress_sample_logger.save(epoch)
 

@@ -72,9 +72,8 @@ class ASR(sb.core.Brain):
         tokens_bos, _ = batch.tokens_bos
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augmentation"):
+            wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
         feats = self.modules.wav2vec2(wavs, wav_lens)
@@ -323,10 +322,7 @@ def dataio_prepare(hparams, tokenizer):
 
         if info.num_channels > 1:
             # Select the proper audio channel of the segment
-            if channel == "A":
-                resampled = resampled[:, 0]
-            else:
-                resampled = resampled[:, 1]
+            resampled = resampled[:, 0] if channel == "A" else resampled[:, 1]
         return resampled
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
@@ -334,17 +330,14 @@ def dataio_prepare(hparams, tokenizer):
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("words")
     @sb.utils.data_pipeline.provides(
-        "tokens_list", "tokens_bos", "tokens_eos", "tokens"
-    )
+            "tokens_list", "tokens_bos", "tokens_eos", "tokens"
+        )
     def text_pipeline(wrd):
         tokens_list = tokenizer.sp.encode_as_ids(wrd)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
+        yield torch.LongTensor([hparams["bos_index"]] + (tokens_list))
+        yield torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        yield torch.LongTensor(tokens_list)
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
@@ -437,7 +430,7 @@ if __name__ == "__main__":
     # Test
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+            hparams["output_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
             test_datasets[k],

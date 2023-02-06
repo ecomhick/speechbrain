@@ -39,7 +39,7 @@ def dynamic_mix_data_prep(hparams):
 
     spk_hashtable, spk_weights = build_spk_hashtable(hparams)
 
-    spk_list = [x for x in spk_hashtable.keys()]
+    spk_list = list(spk_hashtable.keys())
     spk_weights = [x / sum(spk_weights) for x in spk_weights]
 
     if "noise" in hparams["experiment_name"]:
@@ -47,11 +47,11 @@ def dynamic_mix_data_prep(hparams):
 
     @sb.utils.data_pipeline.takes("mix_wav")
     @sb.utils.data_pipeline.provides(
-        "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"
-    )
+            "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"
+        )
     def audio_pipeline(
-        mix_wav,
-    ):  # this is dummy --> it means one epoch will be same as without dynamic mixing
+            mix_wav,
+        ):    # this is dummy --> it means one epoch will be same as without dynamic mixing
         """
         This audio pipeline defines the compute graph for dynamic mixing
         """
@@ -182,9 +182,7 @@ def dynamic_mix_data_prep(hparams):
         )
         mix_scaling = 1 / max_amp * 0.9
         sources = mix_scaling * sources
-        mixture = mix_scaling * mixture
-
-        yield mixture
+        yield mix_scaling * mixture
         for i in range(hparams["num_spks"]):
             yield sources[i]
 
@@ -195,8 +193,7 @@ def dynamic_mix_data_prep(hparams):
         if "noise" in hparams["experiment_name"]:
             mean_source_lvl = sources.abs().mean()
             mean_noise_lvl = noise.abs().mean()
-            noise = (mean_source_lvl / mean_noise_lvl) * noise
-            yield noise
+            yield (mean_source_lvl / mean_noise_lvl) * noise
         else:
             yield None
 

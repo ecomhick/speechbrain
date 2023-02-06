@@ -112,9 +112,9 @@ def prepare_ksponspeech(
                 os.path.join(data_folder, dir), match_and=[".wav"]
             )
 
-        trnpath = os.path.join(data_folder, split + ".trn")
+        trnpath = os.path.join(data_folder, f"{split}.trn")
         text_dict = text_to_dict(trnpath)
-        all_texts.update(text_dict)
+        all_texts |= text_dict
 
         if select_n_sentences is not None:
             n_sentences = select_n_sentences[split_index]
@@ -127,7 +127,7 @@ def prepare_ksponspeech(
 
     # Merging csv file if needed
     if merge_lst and merge_name is not None:
-        merge_files = [split_kspon + ".csv" for split_kspon in merge_lst]
+        merge_files = [f"{split_kspon}.csv" for split_kspon in merge_lst]
         merge_csvs(
             data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
         )
@@ -160,10 +160,10 @@ def create_csv(
     None
     """
     # Setting path for the csv file
-    csv_file = os.path.join(save_folder, split + ".csv")
+    csv_file = os.path.join(save_folder, f"{split}.csv")
 
     # Preliminary prints
-    msg = "Creating csv lists in  %s..." % (csv_file)
+    msg = f"Creating csv lists in  {csv_file}..."
     logger.info(msg)
 
     csv_lines = [["ID", "duration", "wav", "spk_id", "wrd"]]
@@ -178,13 +178,7 @@ def create_csv(
 
         duration = torchaudio.info(wav_file).num_frames / SAMPLERATE
 
-        csv_line = [
-            snt_id,
-            str(duration),
-            wav_file,
-            spk_id,
-            str(" ".join(wrds.split())),
-        ]
+        csv_line = [snt_id, str(duration), wav_file, spk_id, " ".join(wrds.split())]
 
         #  Appending current file to the csv_lines list
         csv_lines.append(csv_line)
@@ -203,7 +197,7 @@ def create_csv(
             csv_writer.writerow(line)
 
     # Final print
-    msg = "%s successfully created!" % (csv_file)
+    msg = f"{csv_file} successfully created!"
     logger.info(msg)
 
 
@@ -231,7 +225,7 @@ def skip(splits, save_folder, conf):
     skip = True
 
     for split in splits:
-        if not os.path.isfile(os.path.join(save_folder, split + ".csv")):
+        if not os.path.isfile(os.path.join(save_folder, f"{split}.csv")):
             skip = False
 
     #  Checking saved options
@@ -239,10 +233,7 @@ def skip(splits, save_folder, conf):
     if skip is True:
         if os.path.isfile(save_opt):
             opts_old = load_pkl(save_opt)
-            if opts_old == conf:
-                skip = True
-            else:
-                skip = False
+            skip = opts_old == conf
         else:
             skip = False
 
@@ -331,7 +322,7 @@ def split2dirs(split):
         raise ValueError("Unsupported data split")
 
     if "eval" in split:
-        dirs = ["test/" + split]
+        dirs = [f"test/{split}"]
 
     elif split == "dev":
         dirs = [
@@ -388,7 +379,7 @@ def check_ksponspeech_folders(data_folder, splits):
             raise ValueError("Unsupported data split")
 
         if "eval" in split:
-            trn_folder = os.path.join(data_folder, split + ".trn")
+            trn_folder = os.path.join(data_folder, f"{split}.trn")
             if not os.path.exists(trn_folder):
                 err_msg = (
                     "the file %s does not exist (it is expected in the "
@@ -396,16 +387,7 @@ def check_ksponspeech_folders(data_folder, splits):
                 )
                 raise OSError(err_msg)
 
-        elif split == "dev":
-            trn_folder = os.path.join(data_folder, "train.trn")
-            if not os.path.exists(trn_folder):
-                err_msg = (
-                    "the file %s does not exist (it is expected in the "
-                    "ksponspeech dataset)" % trn_folder
-                )
-                raise OSError(err_msg)
-
-        elif split == "train":
+        elif split in ["dev", "train"]:
             trn_folder = os.path.join(data_folder, "train.trn")
             if not os.path.exists(trn_folder):
                 err_msg = (

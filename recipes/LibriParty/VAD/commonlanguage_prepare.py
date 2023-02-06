@@ -27,7 +27,7 @@ def prepare_commonlanguage(folder, csv_file, max_noise_len=None):
     logger.info("CommonLanguage Preparation...")
     wav_lst = get_all_files(os.path.join(folder), match_and=[".wav"])
     if not os.path.isfile(csv_file):
-        logger.info(csv_file + " creation...")
+        logger.info(f"{csv_file} creation...")
         _prepare_csv(folder, wav_lst, csv_file, max_noise_len)
 
 
@@ -72,9 +72,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                             stop = int(
                                 min(max_length * (i + 1), duration) * rate
                             )
-                            new_filename = (
-                                filename[: -len(f".{ext}")] + f"_{i}.{ext}"
-                            )
+                            new_filename = f'{filename[:-len(f".{ext}")]}_{i}.{ext}'
                             torchaudio.save(
                                 new_filename, signal[:, start:stop], rate
                             )

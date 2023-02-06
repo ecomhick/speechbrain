@@ -276,16 +276,15 @@ def dataio_prepare(hparams):
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens"
-    )
+            "wrd", "char_list", "tokens_list", "tokens"
+        )
     def text_pipeline(wrd):
         yield wrd
         char_list = list(wrd)
         yield char_list
         tokens_list = label_encoder.encode_sequence(char_list)
         yield tokens_list
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
+        yield torch.LongTensor(tokens_list)
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
@@ -380,7 +379,7 @@ if __name__ == "__main__":
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+            hparams["output_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
             test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]

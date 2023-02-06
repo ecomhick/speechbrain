@@ -27,8 +27,7 @@ def phn2txt(phn, phoneme_map):
         the mapped string representation
     """
     value = "".join(phoneme_map[phoneme] for phoneme in phn).strip()
-    value = MULTI_SPACE.sub("", value)
-    return value
+    return MULTI_SPACE.sub("", value)
 
 
 def prepare_annotation(src, destination_file_name, phonemes):

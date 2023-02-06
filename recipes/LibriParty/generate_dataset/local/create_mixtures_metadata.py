@@ -50,10 +50,7 @@ def create_metadata(
         # we select all utterances from selected speakers
         c_utts = [utterances_dict[spk_id] for spk_id in c_speakers]
 
-        activity = {}
-        for spk in c_speakers:
-            activity[spk] = []
-
+        activity = {spk: [] for spk in c_speakers}
         tot_length = 0
         min_spk_lvl = np.inf
         for i in range(len(c_speakers)):
@@ -201,9 +198,7 @@ def create_metadata(
                 "channel": None,
             }
 
-        dataset_metadata["session_{}".format(n_sess)] = activity
+        dataset_metadata[f"session_{n_sess}"] = activity
 
-    with open(
-        os.path.join(configs["out_folder"], output_filename + ".json"), "w"
-    ) as f:
+    with open(os.path.join(configs["out_folder"], f"{output_filename}.json"), "w") as f:
         json.dump(dataset_metadata, f, indent=4)

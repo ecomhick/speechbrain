@@ -141,8 +141,7 @@ class ST(sb.core.Brain):
             self.train_stats = stage_loss
 
         else:  # valid or test
-            stage_stats = {"loss": stage_loss}
-            stage_stats["ACC"] = self.acc_metric.summarize()
+            stage_stats = {"loss": stage_loss, "ACC": self.acc_metric.summarize()}
             stage_stats["BLEU"] = self.bleu_metric.summarize(field="BLEU")
             stage_stats["BLEU_extensive"] = self.bleu_metric.summarize()
             current_epoch = self.hparams.epoch_counter.current
@@ -183,7 +182,7 @@ class ST(sb.core.Brain):
 
             # create checkpoing
             meta = {"BLEU": stage_stats["BLEU"], "epoch": current_epoch}
-            name = "checkpoint_epoch" + str(current_epoch)
+            name = f"checkpoint_epoch{str(current_epoch)}"
 
             self.checkpointer.save_and_keep_only(
                 meta=meta, name=name, num_to_keep=10, max_keys=["BLEU"]
@@ -225,17 +224,15 @@ def dataio_prepare(hparams):
     # decoder during training, the tokens with EOS for computing the cost function.
     @sb.utils.data_pipeline.takes("trans")
     @sb.utils.data_pipeline.provides(
-        "trans", "tokens_list", "tokens_bos", "tokens_eos"
-    )
+            "trans", "tokens_list", "tokens_bos", "tokens_eos"
+        )
     def reference_text_pipeline(translation):
         """Processes the transcriptions to generate proper labels"""
         yield translation
         tokens_list = tokenizer.sp.encode_as_ids(translation)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
+        yield torch.LongTensor([hparams["bos_index"]] + (tokens_list))
+        yield torch.LongTensor(tokens_list + [hparams["eos_index"]])
 
     data_folder = hparams["data_folder"]
 
@@ -243,7 +240,7 @@ def dataio_prepare(hparams):
     tokenizer = SentencePiece(
         model_dir=hparams["save_folder"],
         vocab_size=hparams["vocab_size"],
-        annotation_train=data_folder + "/train.json",
+        annotation_train=f"{data_folder}/train.json",
         annotation_read="trans",
         annotation_format="json",
         model_type="unigram",

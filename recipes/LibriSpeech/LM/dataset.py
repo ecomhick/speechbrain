@@ -77,17 +77,14 @@ class LibrispeechLm(datasets.GeneratorBasedBuilder):
 
     def _split_generators(self, dl_manager):
         """Returns SplitGenerators."""
-        path_dic = {}
-        for split_name, files in self.config.data_files.items():
-            if (
-                split_name == "train"
-            ):  # concatination lm_copus and train transcripts
-                path_dic[split_name] = dl_manager.download_and_extract(
-                    [self.config.lm_corpus_path] + files
-                )
-            else:
-                path_dic[split_name] = dl_manager.download_and_extract(files)
-
+        path_dic = {
+            split_name: dl_manager.download_and_extract(
+                [self.config.lm_corpus_path] + files
+            )
+            if (split_name == "train")
+            else dl_manager.download_and_extract(files)
+            for split_name, files in self.config.data_files.items()
+        }
         return [
             datasets.SplitGenerator(
                 name=split_name, gen_kwargs={"archive_path": archive_path}

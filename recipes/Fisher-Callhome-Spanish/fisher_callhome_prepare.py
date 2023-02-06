@@ -6,6 +6,7 @@ Author
 YAO-FEI, CHENG 2021
 """
 
+
 import os
 import re
 import json
@@ -27,8 +28,10 @@ from speechbrain.processing.speech_augmentation import Resample
 try:
     from sacremoses import MosesPunctNormalizer, MosesTokenizer
 except ImportError:
-    err_msg = "The optional dependency sacremoses must be installed to run this recipe.\n"
-    err_msg += "Install using `pip install sacremoses`.\n"
+    err_msg = (
+        "The optional dependency sacremoses must be installed to run this recipe.\n"
+        + "Install using `pip install sacremoses`.\n"
+    )
     raise ImportError(err_msg)
 
 logger = logging.getLogger(__name__)
@@ -247,20 +250,12 @@ def prepare_fisher_callhome_spanish(
 
 def skip(save_folder: str, dataset: str) -> bool:
     """Detect when fisher-callhome data preparation can be skipped"""
-    is_skip = True
-
-    if not os.path.isfile(f"{save_folder}/{dataset}/data.json"):
-        is_skip = False
-
-    return is_skip
+    return bool(os.path.isfile(f"{save_folder}/{dataset}/data.json"))
 
 
 def check_folders(*folders) -> bool:
     """Returns False if any passed folder does not exist."""
-    for folder in folders:
-        if not os.path.exists(folder):
-            return False
-    return True
+    return all(os.path.exists(folder) for folder in folders)
 
 
 def get_data_list(path: str) -> str:
@@ -335,9 +330,6 @@ def concate_transcriptions_by_mapping_file(
                 start = selected_transcription[
                     need_to_be_concate_lines[0] - 1
                 ].start
-                end = selected_transcription[
-                    need_to_be_concate_lines[-1] - 1
-                ].end
             else:
                 concated_transcripts = selected_transcription[
                     need_to_be_concate_lines[-1] - 1
@@ -345,10 +337,9 @@ def concate_transcriptions_by_mapping_file(
                 start = selected_transcription[
                     need_to_be_concate_lines[-1] - 1
                 ].start
-                end = selected_transcription[
-                    need_to_be_concate_lines[-1] - 1
-                ].end
-
+            end = selected_transcription[
+                need_to_be_concate_lines[-1] - 1
+            ].end
             # clean up
             concated_transcripts = normalize_punctuation(concated_transcripts)
             concated_transcripts = es_normalizer.normalize(concated_transcripts)
@@ -410,11 +401,9 @@ def get_transcription_files_by_dataset(
         map(lambda path: f"{path}.tdf", transcription_train_set)
     )
 
-    transcription_files = get_all_files(
+    return get_all_files(
         transcription_folder, match_or=transcription_train_set
     )
-
-    return transcription_files
 
 
 def get_translations_from_path(translation_path: str) -> List[str]:
@@ -452,9 +441,9 @@ def insert_translation_into_existing_dataset(
 
 
 def download_translations(path: str):
-    repo = "https://github.com/joshua-decoder/fisher-callhome-corpus.git"
-
     if not os.path.isdir(path):
+        repo = "https://github.com/joshua-decoder/fisher-callhome-corpus.git"
+
         logger.info(f"Translation file not found. Downloading from {repo}.")
         subprocess.run(["git", "clone", repo])
         subprocess.run(["mv", "fisher-callhome-corpus", f"{path}"])
@@ -464,28 +453,29 @@ def make_data_splits(
     mapping_folder: str = "../data/fisher-callhome-corpus/mapping",
 ):
     """make data split from mapping file"""
+    if os.path.exists("splits"):
+        return
+    os.mkdir("splits")
+
     fisher_splits = ["dev", "dev2", "test", "train"]
 
-    if not os.path.exists("splits"):
-        os.mkdir("splits")
+    for fisher_split in fisher_splits:
+        split = set()
+        with open(
+            f"{mapping_folder}/fisher_{fisher_split}", "r", encoding="utf-8"
+        ) as fisher_file, open(
+            f"./splits/{fisher_split}", "a+", encoding="utf-8"
+        ) as split_file:
+            fisher_file_lines = fisher_file.readlines()
 
-        for fisher_split in fisher_splits:
-            split = set()
-            with open(
-                f"{mapping_folder}/fisher_{fisher_split}", "r", encoding="utf-8"
-            ) as fisher_file, open(
-                f"./splits/{fisher_split}", "a+", encoding="utf-8"
-            ) as split_file:
-                fisher_file_lines = fisher_file.readlines()
+            for fisher_file_line in fisher_file_lines:
+                fisher_file_line = fisher_file_line.strip()
+                fisher_file_id = fisher_file_line.split(" ")[0]
+                split.add(fisher_file_id)
 
-                for fisher_file_line in fisher_file_lines:
-                    fisher_file_line = fisher_file_line.strip()
-                    fisher_file_id = fisher_file_line.split(" ")[0]
-                    split.add(fisher_file_id)
-
-                split = sorted(list(split))
-                for file_id in split:
-                    split_file.write(f"{file_id}\n")
+            split = sorted(list(split))
+            for file_id in split:
+                split_file.write(f"{file_id}\n")
 
 
 def remove_punctuation(text: str) -> str:
@@ -496,7 +486,7 @@ def remove_punctuation(text: str) -> str:
     text = text.replace("'", "apostrophe")
 
     # based on the definition of [[:punct]]
-    punctuation = r"[{}]".format(string.punctuation)
+    punctuation = f"[{string.punctuation}]"
 
     text = re.sub(punctuation, "", text)
     text = text.replace("spacemark", "<space>")
@@ -646,7 +636,7 @@ def clean_transcription(transcription: str) -> str:
     transcription = transcription.replace("<", "larrow")
     transcription = transcription.replace(">", "rarrow")
 
-    punctuation = r"[{}]".format(string.punctuation)
+    punctuation = f"[{string.punctuation}]"
     transcription = re.sub(punctuation, "", transcription)
 
     transcription = transcription.replace("larrow", "<")
@@ -677,9 +667,7 @@ def clean_translation(translation: str) -> str:
     translation = translation.lower()
 
     translation = translation.replace("¿", "")
-    translation = translation.replace("¡", "")
-
-    return translation
+    return translation.replace("¡", "")
 
 
 def remove_labels(transcription: str):

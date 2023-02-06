@@ -43,9 +43,8 @@ class ASR(sb.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augmentation"):
+            wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
 
@@ -257,16 +256,14 @@ def dataio_prepare(hparams, tokenizer):
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens"
-    )
+            "wrd", "char_list", "tokens_list", "tokens"
+        )
     def text_pipeline(wrd):
         yield wrd
-        char_list = list(wrd)
-        yield char_list
+        yield list(wrd)
         tokens_list = tokenizer.sp.encode_as_ids(wrd)
         yield tokens_list
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
+        yield torch.LongTensor(tokens_list)
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
@@ -357,7 +354,7 @@ if __name__ == "__main__":
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+            hparams["output_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
             test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]

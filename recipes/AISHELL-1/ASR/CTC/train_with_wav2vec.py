@@ -45,9 +45,8 @@ class ASR(sb.Brain):
         # Forward pass
         feats = self.modules.wav2vec2(wavs, wav_lens)
 
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "SpecAugment"):
-                feats = self.hparams.SpecAugment(feats)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "SpecAugment"):
+            feats = self.hparams.SpecAugment(feats)
 
         x = self.modules.enc(feats)
         logits = self.modules.ctc_lin(x)
@@ -85,7 +84,7 @@ class ASR(sb.Brain):
                 for c in predicted_tokens:
                     if c == "[CLS]":
                         continue
-                    elif c == "[SEP]" or c == "[PAD]":
+                    elif c in ["[SEP]", "[PAD]"]:
                         break
                     else:
                         predicted_words.append(c)
@@ -260,8 +259,7 @@ def dataio_prepare(hparams):
         yield wrd
         tokens_list = tokenizer(wrd)["input_ids"]
         yield tokens_list
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
+        yield torch.LongTensor(tokens_list)
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 

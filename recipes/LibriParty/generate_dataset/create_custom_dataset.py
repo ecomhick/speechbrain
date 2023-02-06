@@ -96,7 +96,7 @@ os.makedirs(os.path.join(params["out_folder"], "metadata"), exist_ok=True)
 
 # we generate metadata for each split
 for indx, split in enumerate(["train", "dev", "eval"]):
-    print("Generating metadata for {} set".format(split))
+    print(f"Generating metadata for {split} set")
     # we parse librispeech utterances for current split
     c_libri_folder = params["librispeech_folders"][split]
     c_utterances, c_words = parse_libri_folder(c_libri_folder)
@@ -114,13 +114,11 @@ for indx, split in enumerate(["train", "dev", "eval"]):
 
 # from metadata we generate the actual mixtures
 
-for indx, split in enumerate(["train", "dev", "eval"]):
+for split in ["train", "dev", "eval"]:
     # load metadata
-    with open(
-        os.path.join(params["out_folder"], "metadata", split + ".json")
-    ) as f:
+    with open(os.path.join(params["out_folder"], "metadata", f"{split}.json")) as f:
         c_meta = json.load(f)
-    print("Creating {} set".format(split))
+    print(f"Creating {split} set")
     for sess in tqdm(c_meta.keys()):
         c_folder = os.path.join(params["out_folder"], split)
         os.makedirs(c_folder, exist_ok=True)
