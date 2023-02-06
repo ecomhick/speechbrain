@@ -54,10 +54,7 @@ class W2VBrain(sb.core.Brain):
         out, mask = self.modules.wav2vec2(wavs, wav_lens)
         loss = out.loss
 
-        if stage != sb.Stage.TRAIN:
-            return loss, out, mask
-
-        return loss
+        return (loss, out, mask) if stage != sb.Stage.TRAIN else loss
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""

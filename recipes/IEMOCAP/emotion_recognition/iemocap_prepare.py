@@ -65,7 +65,7 @@ def prepare_data(
     >>> data_original = '/path/to/iemocap/IEMOCAP_full_release'
     >>> prepare_data(data_original, 'train.json', 'valid.json', 'test.json')
     """
-    data_original = data_original + "/Session"
+    data_original = f"{data_original}/Session"
     # setting seeds for reproducible code.
     random.seed(seed)
 
@@ -76,7 +76,7 @@ def prepare_data(
 
     speaker_dict = transform_data(data_original)
 
-    if sum([len(value) for value in speaker_dict.values()]) != NUMBER_UTT:
+    if sum(len(value) for value in speaker_dict.values()) != NUMBER_UTT:
         logger.error(
             "Error: Number of utterances is not 5531, please check your IEMOCAP folder"
         )
@@ -145,10 +145,7 @@ def skip(*filenames):
         if True, the preparation phase can be skipped.
         if False, it must be done.
     """
-    for filename in filenames:
-        if not os.path.isfile(filename):
-            return False
-    return True
+    return all(os.path.isfile(filename) for filename in filenames)
 
 
 def split_different_speakers(speaker_dict, test_spk_id):
@@ -175,15 +172,11 @@ def split_different_speakers(speaker_dict, test_spk_id):
     data_split["test"].extend(speaker_dict[str(test_spk_id)])
 
     # use the speaker in the same session as validation set
-    if test_spk_id % 2 == 0:
-        valid_spk_num = test_spk_id - 1
-    else:
-        valid_spk_num = test_spk_id + 1
-
+    valid_spk_num = test_spk_id - 1 if test_spk_id % 2 == 0 else test_spk_id + 1
     data_split["valid"].extend(speaker_dict[str(valid_spk_num)])
 
     for i in range(1, 11):
-        if i != valid_spk_num and i != test_spk_id:
+        if i not in [valid_spk_num, test_spk_id]:
             data_split["train"].extend(speaker_dict[str(i)])
 
     return data_split
@@ -226,8 +219,8 @@ def split_sets(speaker_dict, split_ratio):
 
     for i, split in enumerate(splits):
         n_snts = int(tot_snts * split_ratio[i] / tot_split)
-        data_split[split] = wav_list[0:n_snts]
-        del wav_list[0:n_snts]
+        data_split[split] = wav_list[:n_snts]
+        del wav_list[:n_snts]
     data_split["test"] = wav_list
 
     return data_split
@@ -253,7 +246,7 @@ def transform_data(path_loadSession):
 
     speaker_count = 0
     for k in range(5):
-        session = load_session("%s%s" % (path_loadSession, k + 1))
+        session = load_session(f"{path_loadSession}{k + 1}")
         for idx in range(len(session)):
             if session[idx][2] == "F":
                 speaker_dict[str(speaker_count + 1)].append(session[idx])
@@ -303,8 +296,8 @@ def load_session(pathSession):
         improvisedUtteranceList: list
             List of improvised utterancefor IEMOCAP session.
     """
-    pathEmo = pathSession + "/dialog/EmoEvaluation/"
-    pathWavFolder = pathSession + "/sentences/wav/"
+    pathEmo = f"{pathSession}/dialog/EmoEvaluation/"
+    pathWavFolder = f"{pathSession}/sentences/wav/"
 
     improvisedUtteranceList = []
     for emoFile in [
@@ -313,13 +306,7 @@ def load_session(pathSession):
         if os.path.isfile(os.path.join(pathEmo, f))
     ]:
         for utterance in load_utterInfo(pathEmo + emoFile):
-            if (
-                (utterance[3] == "neu")
-                or (utterance[3] == "hap")
-                or (utterance[3] == "sad")
-                or (utterance[3] == "ang")
-                or (utterance[3] == "exc")
-            ):
+            if utterance[3] in ["neu", "hap", "sad", "ang", "exc"]:
                 path = (
                     pathWavFolder
                     + utterance[2][:-5]

@@ -87,10 +87,9 @@ class LM(sb.core.Brain):
         """
         batch = batch.to(self.device)
         tokens_eos, tokens_len = batch.phn_encoded_eos
-        loss = self.hparams.compute_cost(
+        return self.hparams.compute_cost(
             predictions, tokens_eos, length=tokens_len
         )
-        return loss
 
     def fit_batch(self, batch):
         """Runs all the steps needed to train the model on a single batch.
@@ -124,10 +123,11 @@ class LM(sb.core.Brain):
             self.optimizer.zero_grad()
 
             if isinstance(
-                self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
-            ) or isinstance(
                 self.hparams.lr_annealing,
-                sb.nnet.schedulers.CyclicCosineScheduler,
+                (
+                    sb.nnet.schedulers.NoamScheduler,
+                    sb.nnet.schedulers.CyclicCosineScheduler,
+                ),
             ):
                 self.hparams.lr_annealing(self.optimizer)
 

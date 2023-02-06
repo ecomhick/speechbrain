@@ -193,8 +193,7 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.provides("emo", "emo_encoded")
     def label_pipeline(emo):
         yield emo
-        emo_encoded = label_encoder.encode_label_torch(emo)
-        yield emo_encoded
+        yield label_encoder.encode_label_torch(emo)
 
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.

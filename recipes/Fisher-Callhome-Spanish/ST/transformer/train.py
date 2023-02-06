@@ -259,12 +259,10 @@ class ST(sb.core.Brain):
             if current_epoch <= self.hparams.stage_one_epochs:
                 lr = self.hparams.noam_annealing.current_lr
                 steps = self.hparams.noam_annealing.n_steps
-                optimizer = self.optimizer.__class__.__name__
             else:
                 lr = self.hparams.lr_sgd
                 steps = -1
-                optimizer = self.optimizer.__class__.__name__
-
+            optimizer = self.optimizer.__class__.__name__
             epoch_stats = {
                 "epoch": epoch,
                 "lr": lr,
@@ -325,8 +323,8 @@ class ST(sb.core.Brain):
 
         # if the model is resumed from stage two, reinitialize the optimizer
         current_epoch = self.hparams.epoch_counter.current
-        current_optimizer = self.optimizer
         if current_epoch > self.hparams.stage_one_epochs:
+            current_optimizer = self.optimizer
             del self.optimizer
             self.optimizer = self.hparams.SGD(self.modules.parameters())
 
@@ -386,33 +384,30 @@ def dataio_prepare(hparams):
     # The tokens without BOS or EOS is for computing CTC loss.
     @sb.utils.data_pipeline.takes("translation_0")
     @sb.utils.data_pipeline.provides(
-        "translation_0", "tokens_list", "tokens_bos", "tokens_eos", "tokens",
-    )
+            "translation_0", "tokens_list", "tokens_bos", "tokens_eos", "tokens",
+        )
     def one_reference_text_pipeline(translation):
         """Processes the transcriptions to generate proper labels"""
         yield translation
         tokens_list = hparams["tokenizer"].encode_as_ids(translation)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
+        yield torch.LongTensor([hparams["bos_index"]] + (tokens_list))
+        yield torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        yield torch.LongTensor(tokens_list)
 
     @sb.utils.data_pipeline.takes(
-        "translation_0", "translation_1", "translation_2", "translation_3",
-    )
+            "translation_0", "translation_1", "translation_2", "translation_3",
+        )
     @sb.utils.data_pipeline.provides(
-        "translation_0",
-        "translation_1",
-        "translation_2",
-        "translation_3",
-        "tokens_list",
-        "tokens_bos",
-        "tokens_eos",
-        "tokens",
-    )
+            "translation_0",
+            "translation_1",
+            "translation_2",
+            "translation_3",
+            "tokens_list",
+            "tokens_bos",
+            "tokens_eos",
+            "tokens",
+        )
     def four_reference_text_pipeline(*translations):
         """Processes the transcriptions to generate proper labels"""
         yield translations[0]
@@ -421,31 +416,25 @@ def dataio_prepare(hparams):
         yield translations[3]
         tokens_list = hparams["tokenizer"].encode_as_ids(translations[0])
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
+        yield torch.LongTensor([hparams["bos_index"]] + (tokens_list))
+        yield torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        yield torch.LongTensor(tokens_list)
 
     @sb.utils.data_pipeline.takes("transcription")
     @sb.utils.data_pipeline.provides(
-        "transcription",
-        "transcription_list",
-        "transcription_bos",
-        "transcription_eos",
-        "transcription_tokens",
-    )
+            "transcription",
+            "transcription_list",
+            "transcription_bos",
+            "transcription_eos",
+            "transcription_tokens",
+        )
     def transcription_text_pipeline(transcription):
         yield transcription
         tokens_list = hparams["tokenizer"].encode_as_ids(transcription)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
+        yield torch.LongTensor([hparams["bos_index"]] + (tokens_list))
+        yield torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        yield torch.LongTensor(tokens_list)
 
     datasets = {}
     data_folder = hparams["data_folder"]

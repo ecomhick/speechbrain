@@ -33,9 +33,8 @@ class SLU(sb.Brain):
         tokens_bos, tokens_bos_lens = batch.tokens_bos
 
         # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augmentation"):
+            wavs = self.hparams.augmentation(wavs, wav_lens)
 
         #  encoder forward pass
         wav2vec2_out = self.modules.wav2vec2(wavs, wav_lens)
@@ -48,17 +47,15 @@ class SLU(sb.Brain):
         logits = self.hparams.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
-        # Compute outputs
         if (
             stage == sb.Stage.TRAIN
             and self.batch_count % show_results_every != 0
         ):
             return p_seq, wav_lens
-        else:
-            p_tokens, scores = self.hparams.beam_searcher(
-                wav2vec2_out, wav_lens
-            )
-            return p_seq, wav_lens, p_tokens
+        p_tokens, scores = self.hparams.beam_searcher(
+            wav2vec2_out, wav_lens
+        )
+        return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
@@ -281,18 +278,15 @@ def dataio_prepare(hparams):
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("semantics")
     @sb.utils.data_pipeline.provides(
-        "semantics", "token_list", "tokens_bos", "tokens_eos", "tokens"
-    )
+            "semantics", "token_list", "tokens_bos", "tokens_eos", "tokens"
+        )
     def text_pipeline(semantics):
         yield semantics
         tokens_list = tokenizer.encode_as_ids(semantics)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
+        yield torch.LongTensor([hparams["bos_index"]] + (tokens_list))
+        yield torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        yield torch.LongTensor(tokens_list)
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
@@ -376,10 +370,7 @@ if __name__ == "__main__":
 
     # Test
     print("Creating id_to_file mapping...")
-    id_to_file = {}
     df = pd.read_csv(hparams["csv_test"])
-    for i in range(len(df)):
-        id_to_file[str(df.ID[i])] = df.wav[i].split("/")[-1]
-
+    id_to_file = {str(df.ID[i]): df.wav[i].split("/")[-1] for i in range(len(df))}
     slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
     slu_brain.evaluate(test_set, test_loader_kwargs=hparams["dataloader_opts"])

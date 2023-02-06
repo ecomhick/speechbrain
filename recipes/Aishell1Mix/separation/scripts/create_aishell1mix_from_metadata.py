@@ -310,10 +310,10 @@ def create_empty_metrics_md(n_src, subdir):
     elif subdir == "mix_both":
         for i in range(n_src):
             metrics_dataframe[f"source_{i + 1}_SNR"] = {}
-        metrics_dataframe[f"noise_SNR"] = {}
+        metrics_dataframe["noise_SNR"] = {}
     elif subdir == "mix_single":
         metrics_dataframe["source_1_SNR"] = {}
-        metrics_dataframe[f"noise_SNR"] = {}
+        metrics_dataframe["noise_SNR"] = {}
     return metrics_dataframe
 
 
@@ -328,10 +328,10 @@ def create_empty_mixture_md(n_src, subdir):
     elif subdir == "mix_both":
         for i in range(n_src):
             mixture_dataframe[f"source_{i + 1}_path"] = {}
-        mixture_dataframe[f"noise_path"] = {}
+        mixture_dataframe["noise_path"] = {}
     elif subdir == "mix_single":
         mixture_dataframe["source_1_path"] = {}
-        mixture_dataframe[f"noise_path"] = {}
+        mixture_dataframe["noise_path"] = {}
     mixture_dataframe["length"] = {}
     return mixture_dataframe
 
@@ -349,8 +349,7 @@ def read_sources(row, n_src, aishell1_dir, wham_dir):
         sources_path = os.path.join(aishell1_dir, sources_path)
         source, _ = sf.read(sources_path, dtype="float32")
         # Get max_length
-        if max_length < len(source):
-            max_length = len(source)
+        max_length = max(max_length, len(source))
         sources_list.append(source)
     # Read the noise
     noise_path = os.path.join(wham_dir, row["noise_path"])
@@ -406,28 +405,17 @@ def transform_sources(sources_list, freq, mode, gain_list):
     sources_list_norm = loudness_normalize(sources_list, gain_list)
     # Resample the sources
     sources_list_resampled = resample_list(sources_list_norm, freq)
-    # Reshape sources
-    reshaped_sources = fit_lengths(sources_list_resampled, mode)
-    return reshaped_sources
+    return fit_lengths(sources_list_resampled, mode)
 
 
 def loudness_normalize(sources_list, gain_list):
     """ Normalize sources loudness"""
-    # Create the list of normalized sources
-    normalized_list = []
-    for i, source in enumerate(sources_list):
-        normalized_list.append(source * gain_list[i])
-    return normalized_list
+    return [source * gain_list[i] for i, source in enumerate(sources_list)]
 
 
 def resample_list(sources_list, freq):
     """ Resample the source list to the desired frequency"""
-    # Create the resampled list
-    resampled_list = []
-    # Resample each source
-    for source in sources_list:
-        resampled_list.append(resample_poly(source, freq, RATE))
-    return resampled_list
+    return [resample_poly(source, freq, RATE) for source in sources_list]
 
 
 def fit_lengths(source_list, mode):
@@ -435,17 +423,14 @@ def fit_lengths(source_list, mode):
     sources_list_reshaped = []
     # Check the mode
     if mode == "min":
-        target_length = min([len(source) for source in source_list])
-        for source in source_list:
-            sources_list_reshaped.append(source[:target_length])
+        target_length = min(len(source) for source in source_list)
+        sources_list_reshaped.extend(source[:target_length] for source in source_list)
     else:
-        target_length = max([len(source) for source in source_list])
-        for source in source_list:
-            sources_list_reshaped.append(
-                np.pad(
-                    source, (0, target_length - len(source)), mode="constant"
-                )
-            )
+        target_length = max(len(source) for source in source_list)
+        sources_list_reshaped.extend(
+            np.pad(source, (0, target_length - len(source)), mode="constant")
+            for source in source_list
+        )
     return sources_list_reshaped
 
 

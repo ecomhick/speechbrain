@@ -147,14 +147,11 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
         if False, it must be done.
     """
 
-    # Checking folders and save options
-    skip = (
+    return (
         os.path.isfile(save_csv_train)
         and os.path.isfile(save_csv_dev)
         and os.path.isfile(save_csv_test)
     )
-
-    return skip
 
 
 def create_sets(data_folder, extension):

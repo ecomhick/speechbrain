@@ -77,9 +77,9 @@ def prepare_ami(
 
     # Meta files
     meta_files = [
-        os.path.join(meta_data_dir, "ami_train." + mic_type + ".subsegs.json"),
-        os.path.join(meta_data_dir, "ami_dev." + mic_type + ".subsegs.json"),
-        os.path.join(meta_data_dir, "ami_eval." + mic_type + ".subsegs.json"),
+        os.path.join(meta_data_dir, f"ami_train.{mic_type}.subsegs.json"),
+        os.path.join(meta_data_dir, f"ami_dev.{mic_type}.subsegs.json"),
+        os.path.join(meta_data_dir, f"ami_eval.{mic_type}.subsegs.json"),
     ]
 
     # Create configuration for easily skipping data_preparation stage
@@ -101,7 +101,7 @@ def prepare_ami(
         os.makedirs(save_folder)
 
     # Setting output option files.
-    opt_file = "opt_ami_prepare." + mic_type + ".pkl"
+    opt_file = f"opt_ami_prepare.{mic_type}.pkl"
 
     # Check if this phase is already done (if so, skip it)
     if skip(save_folder, conf, meta_files, opt_file):
@@ -124,7 +124,7 @@ def prepare_ami(
     # Create reference RTTM files
     splits = ["train", "dev", "eval"]
     for i in splits:
-        rttm_file = ref_rttm_dir + "/fullref_ami_" + i + ".rttm"
+        rttm_file = f"{ref_rttm_dir}/fullref_ami_{i}.rttm"
         if i == "train":
             prepare_segs_for_RTTM(
                 train_set,
@@ -159,8 +159,8 @@ def prepare_ami(
         os.makedirs(meta_data_dir)
 
     for i in splits:
-        rttm_file = ref_rttm_dir + "/fullref_ami_" + i + ".rttm"
-        meta_filename_prefix = "ami_" + i
+        rttm_file = f"{ref_rttm_dir}/fullref_ami_{i}.rttm"
+        meta_filename_prefix = f"ami_{i}"
         prepare_metadata(
             rttm_file,
             meta_data_dir,
@@ -198,19 +198,8 @@ def get_RTTM_per_rec(segs, spkrs_list, rec_id):
         # e.g. SPEAKER ES2008c 0 37.880 0.590 <NA> <NA> ES2008c.A_PM <NA> <NA>
 
         if float(row[1]) < float(row[0]):
-            msg1 = (
-                "Possibly Incorrect Annotation Found!! transcriber_start (%s) > transcriber_end (%s)"
-                % (row[0], row[1])
-            )
-            msg2 = (
-                "Excluding this incorrect row from the RTTM : %s, %s, %s, %s"
-                % (
-                    rec_id,
-                    row[0],
-                    str(round(float(row[1]) - float(row[0]), 4)),
-                    str(row[2]),
-                )
-            )
+            msg1 = f"Possibly Incorrect Annotation Found!! transcriber_start ({row[0]}) > transcriber_end ({row[1]})"
+            msg2 = f"Excluding this incorrect row from the RTTM : {rec_id}, {row[0]}, {str(round(float(row[1]) - float(row[0]), 4))}, {str(row[2])}"
             logger.info(msg1)
             logger.info(msg2)
             continue
@@ -254,13 +243,13 @@ def prepare_segs_for_RTTM(
             logger.info(msg)
             continue
 
-        list_sessions = glob.glob(audio_dir + "/" + main_meet_id + "*")
+        list_sessions = glob.glob(f"{audio_dir}/{main_meet_id}*")
         list_sessions.sort()
 
         for sess in list_sessions:
             rec_id = os.path.basename(sess)
-            path = annot_dir + "/segments/" + rec_id
-            f = path + ".*.segments.xml"
+            path = f"{annot_dir}/segments/{rec_id}"
+            f = f"{path}.*.segments.xml"
             list_spkr_xmls = glob.glob(f)
             list_spkr_xmls.sort()  # A, B, C, D, E etc (Speakers)
             segs = []
@@ -272,7 +261,7 @@ def prepare_segs_for_RTTM(
 
                 # Speaker ID
                 spkr = os.path.basename(spkr_xml_file).split(".")[1]
-                spkr_ID = rec_id + "." + spkr
+                spkr_ID = f"{rec_id}.{spkr}"
                 spkrs_list.append(spkr_ID)
 
                 # Parse xml tree
@@ -312,10 +301,7 @@ def is_overlapped(end1, start2):
         Start time of the second segment.
     """
 
-    if start2 > end1:
-        return False
-    else:
-        return True
+    return start2 <= end1
 
 
 def merge_rttm_intervals(rttm_segs):
@@ -360,13 +346,13 @@ def get_subsegments(merged_segs, max_subseg_dur=3.0, overlap=1.5):
     # These rows are in RTTM format
     for row in merged_segs:
         seg_dur = float(row[4])
-        rec_id = row[1]
-
         if seg_dur > max_subseg_dur:
             num_subsegs = int(seg_dur / shift)
             # Taking 0.01 sec as small step
             seg_start = float(row[3])
             seg_end = seg_start + seg_dur
+
+            rec_id = row[1]
 
             # Now divide this segment (new_row) in smaller subsegments
             for i in range(num_subsegs):
@@ -412,16 +398,12 @@ def prepare_metadata(
             RTTM.append(entry)
 
     spkr_info = filter(lambda x: x.startswith("SPKR-INFO"), RTTM)
-    rec_ids = list(set([row.split(" ")[1] for row in spkr_info]))
-    rec_ids.sort()  # sorting just to make JSON look in proper sequence
-
+    rec_ids = sorted({row.split(" ")[1] for row in spkr_info})
     # For each recording merge segments and then perform subsegmentation
     MERGED_SEGMENTS = []
     SUBSEGMENTS = []
     for rec_id in rec_ids:
-        segs_iter = filter(
-            lambda x: x.startswith("SPEAKER " + str(rec_id)), RTTM
-        )
+        segs_iter = filter(lambda x: x.startswith(f"SPEAKER {str(rec_id)}"), RTTM)
         gt_rttm_segs = [row.split(" ") for row in segs_iter]
 
         # Merge, subsegment and then convert to json format.
@@ -435,8 +417,8 @@ def prepare_metadata(
         SUBSEGMENTS = SUBSEGMENTS + subsegs
 
     # Write segment AND sub-segments (in RTTM format)
-    segs_file = save_dir + "/" + filename + ".segments.rttm"
-    subsegment_file = save_dir + "/" + filename + ".subsegments.rttm"
+    segs_file = f"{save_dir}/{filename}.segments.rttm"
+    subsegment_file = f"{save_dir}/{filename}.subsegments.rttm"
 
     with open(segs_file, "w") as f:
         for row in MERGED_SEGMENTS:
@@ -454,27 +436,16 @@ def prepare_metadata(
         rec_id = row[1]
         strt = str(round(float(row[3]), 4))
         end = str(round((float(row[3]) + float(row[4])), 4))
-        subsegment_ID = rec_id + "_" + strt + "_" + end
+        subsegment_ID = f"{rec_id}_{strt}_{end}"
         dur = row[4]
         start_sample = int(float(strt) * SAMPLERATE)
         end_sample = int(float(end) * SAMPLERATE)
 
         # If multi-mic audio is selected
         if mic_type == "Array1":
-            wav_file_base_path = (
-                data_dir
-                + "/"
-                + rec_id
-                + "/audio/"
-                + rec_id
-                + "."
-                + mic_type
-                + "-"
-            )
+            wav_file_base_path = f"{data_dir}/{rec_id}/audio/{rec_id}.{mic_type}-"
 
-            f = []  # adding all 8 mics
-            for i in range(8):
-                f.append(wav_file_base_path + str(i + 1).zfill(2) + ".wav")
+            f = [wav_file_base_path + str(i + 1).zfill(2) + ".wav" for i in range(8)]
             audio_files_path_list = f
 
             # Note: key "files" with 's' is used for multi-mic
@@ -482,38 +453,29 @@ def prepare_metadata(
                 "wav": {
                     "files": audio_files_path_list,
                     "duration": float(dur),
-                    "start": int(start_sample),
-                    "stop": int(end_sample),
-                },
+                    "start": start_sample,
+                    "stop": end_sample,
+                }
             }
         else:
             # Single mic audio
-            wav_file_path = (
-                data_dir
-                + "/"
-                + rec_id
-                + "/audio/"
-                + rec_id
-                + "."
-                + mic_type
-                + ".wav"
-            )
+            wav_file_path = f"{data_dir}/{rec_id}/audio/{rec_id}.{mic_type}.wav"
 
             # Note: key "file" without 's' is used for single-mic
             json_dict[subsegment_ID] = {
                 "wav": {
                     "file": wav_file_path,
                     "duration": float(dur),
-                    "start": int(start_sample),
-                    "stop": int(end_sample),
-                },
+                    "start": start_sample,
+                    "stop": end_sample,
+                }
             }
 
-    out_json_file = save_dir + "/" + filename + "." + mic_type + ".subsegs.json"
+    out_json_file = f"{save_dir}/{filename}.{mic_type}.subsegs.json"
     with open(out_json_file, mode="w") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
-    msg = "%s JSON prepared" % (out_json_file)
+    msg = f"{out_json_file} JSON prepared"
     logger.debug(msg)
 
 
@@ -539,10 +501,7 @@ def skip(save_folder, conf, meta_files, opt_file):
     if skip is True:
         if os.path.isfile(save_opt_file):
             opts_old = load_pkl(save_opt_file)
-            if opts_old == conf:
-                skip = True
-            else:
-                skip = False
+            skip = opts_old == conf
         else:
             skip = False
 

@@ -80,17 +80,17 @@ def prepare_common_voice(
 
     # If not specified point toward standard location w.r.t CommonVoice tree
     if train_tsv_file is None:
-        train_tsv_file = data_folder + "/train.tsv"
+        train_tsv_file = f"{data_folder}/train.tsv"
     else:
         train_tsv_file = train_tsv_file
 
     if dev_tsv_file is None:
-        dev_tsv_file = data_folder + "/dev.tsv"
+        dev_tsv_file = f"{data_folder}/dev.tsv"
     else:
         dev_tsv_file = dev_tsv_file
 
     if test_tsv_file is None:
-        test_tsv_file = data_folder + "/test.tsv"
+        test_tsv_file = f"{data_folder}/test.tsv"
     else:
         test_tsv_file = test_tsv_file
 
@@ -99,20 +99,20 @@ def prepare_common_voice(
         os.makedirs(save_folder)
 
     # Setting ouput files
-    save_csv_train = save_folder + "/train.csv"
-    save_csv_dev = save_folder + "/dev.csv"
-    save_csv_test = save_folder + "/test.csv"
+    save_csv_train = f"{save_folder}/train.csv"
+    save_csv_dev = f"{save_folder}/dev.csv"
+    save_csv_test = f"{save_folder}/test.csv"
 
     # If csv already exists, we skip the data preparation
     if skip(save_csv_train, save_csv_dev, save_csv_test):
 
-        msg = "%s already exists, skipping data preparation!" % (save_csv_train)
+        msg = f"{save_csv_train} already exists, skipping data preparation!"
         logger.info(msg)
 
-        msg = "%s already exists, skipping data preparation!" % (save_csv_dev)
+        msg = f"{save_csv_dev} already exists, skipping data preparation!"
         logger.info(msg)
 
-        msg = "%s already exists, skipping data preparation!" % (save_csv_test)
+        msg = f"{save_csv_test} already exists, skipping data preparation!"
         logger.info(msg)
 
         return
@@ -144,17 +144,13 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
         if False, it must be done.
     """
 
-    # Checking folders and save options
-    skip = False
-
-    if (
-        os.path.isfile(save_csv_train)
-        and os.path.isfile(save_csv_dev)
-        and os.path.isfile(save_csv_test)
-    ):
-        skip = True
-
-    return skip
+    return bool(
+        (
+            os.path.isfile(save_csv_train)
+            and os.path.isfile(save_csv_dev)
+            and os.path.isfile(save_csv_test)
+        )
+    )
 
 
 def create_csv(
@@ -188,11 +184,11 @@ def create_csv(
     loaded_csv = open(orig_tsv_file, "r").readlines()[1:]
     nb_samples = str(len(loaded_csv))
 
-    msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
+    msg = f"Preparing CSV files for {nb_samples} samples ..."
     logger.info(msg)
 
     # Adding some Prints
-    msg = "Creating csv lists in %s ..." % (csv_file)
+    msg = f"Creating csv lists in {csv_file} ..."
     logger.info(msg)
 
     csv_lines = [["ID", "duration", "wav", "spk_id", "wrd"]]
@@ -205,7 +201,7 @@ def create_csv(
 
         # Path is at indice 1 in Common Voice tsv files. And .mp3 files
         # are located in datasets/lang/clips/
-        mp3_path = data_folder + "/clips/" + line.split("\t")[1]
+        mp3_path = f"{data_folder}/clips/" + line.split("\t")[1]
         file_name = mp3_path.split(".")[-2].split("/")[-1]
         spk_id = line.split("\t")[0]
         snt_id = file_name
@@ -269,14 +265,14 @@ def create_csv(
                 + ALEF_MADDA
                 + ALEF_HAMZA_ABOVE
             )
-            words = re.sub("[^" + letters + " ]+", "", words).upper()
+            words = re.sub(f"[^{letters} ]+", "", words).upper()
         elif language == "ga-IE":
             # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
             def pfxuc(a):
                 return len(a) >= 2 and a[0] in "tn" and a[1] in "AEIOUÁÉÍÓÚ"
 
             def galc(w):
-                return w.lower() if not pfxuc(w) else w[0] + "-" + w[1:].lower()
+                return f"{w[0]}-{w[1:].lower()}" if pfxuc(w) else w.lower()
 
             words = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", words)
             words = " ".join(map(galc, words.split(" ")))
@@ -295,7 +291,7 @@ def create_csv(
 
         # Getting chars
         chars = words.replace(" ", "_")
-        chars = " ".join([char for char in chars][:])
+        chars = " ".join(list(chars)[:])
 
         # Remove too short sentences (or empty):
         if len(words.split(" ")) < 3:
@@ -317,11 +313,11 @@ def create_csv(
             csv_writer.writerow(line)
 
     # Final prints
-    msg = "%s successfully created!" % (csv_file)
+    msg = f"{csv_file} successfully created!"
     logger.info(msg)
-    msg = "Number of samples: %s " % (str(len(loaded_csv)))
+    msg = f"Number of samples: {len(loaded_csv)} "
     logger.info(msg)
-    msg = "Total duration: %s Hours" % (str(round(total_duration / 3600, 2)))
+    msg = f"Total duration: {str(round(total_duration / 3600, 2))} Hours"
     logger.info(msg)
 
 

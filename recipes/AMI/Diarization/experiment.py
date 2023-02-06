@@ -18,6 +18,7 @@ Authors
  * Nauman Dawalatabad 2020
 """
 
+
 import os
 import sys
 import torch
@@ -48,8 +49,10 @@ sys.path.append(os.path.dirname(current_dir))
 try:
     import sklearn  # noqa F401
 except ImportError:
-    err_msg = "Cannot import optional dependency `scikit-learn` (sklearn) used in this module.\n"
-    err_msg += "Please follow the below instructions\n"
+    err_msg = (
+        "Cannot import optional dependency `scikit-learn` (sklearn) used in this module.\n"
+        + "Please follow the below instructions\n"
+    )
     err_msg += "=============================\n"
     err_msg += "Using pip:\n"
     err_msg += "pip install scikit-learn\n"
@@ -91,8 +94,8 @@ def embedding_computation_loop(split, set_loader, stat_file):
             ids = batch.id
             wavs, lens = batch.sig
 
-            mod = [x for x in ids]
-            seg = [x for x in ids]
+            mod = list(ids)
+            seg = list(ids)
             modelset = modelset + mod
             segset = segset + seg
 
@@ -179,14 +182,13 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
     # Get all the recording IDs in this dataset.
     all_keys = full_meta.keys()
     A = [word.rstrip().split("_")[0] for word in all_keys]
-    all_rec_ids = list(set(A[1:]))
-    all_rec_ids.sort()
-    split = "AMI_" + split_type
+    all_rec_ids = sorted(set(A[1:]))
+    split = f"AMI_{split_type}"
     i = 1
 
     # Setting eval modality.
     params["embedding_model"].eval()
-    msg = "Diarizing " + split_type + " set"
+    msg = f"Diarizing {split_type} set"
     logger.info(msg)
 
     if len(all_rec_ids) <= 0:
@@ -197,19 +199,11 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
     # Diarizing different recordings in a dataset.
     for rec_id in tqdm(all_rec_ids):
         # This tag will be displayed in the log.
-        tag = (
-            "["
-            + str(split_type)
-            + ": "
-            + str(i)
-            + "/"
-            + str(len(all_rec_ids))
-            + "]"
-        )
+        tag = f"[{str(split_type)}: {str(i)}/{len(all_rec_ids)}]"
         i = i + 1
 
         # Log message.
-        msg = "Diarizing %s : %s " % (tag, rec_id)
+        msg = f"Diarizing {tag} : {rec_id} "
         logger.debug(msg)
 
         # Embedding directory.
@@ -217,14 +211,14 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
             os.makedirs(os.path.join(params["embedding_dir"], split))
 
         # File to store embeddings.
-        emb_file_name = rec_id + "." + params["mic_type"] + ".emb_stat.pkl"
+        emb_file_name = f"{rec_id}." + params["mic_type"] + ".emb_stat.pkl"
         diary_stat_emb_file = os.path.join(
             params["embedding_dir"], split, emb_file_name
         )
 
         # Prepare a metadata (json) for one recording. This is basically a subset of full_meta.
         # Lets keep this meta-info in embedding directory itself.
-        json_file_name = rec_id + "." + params["mic_type"] + ".json"
+        json_file_name = f"{rec_id}." + params["mic_type"] + ".json"
         meta_per_rec_file = os.path.join(
             params["embedding_dir"], split, json_file_name
         )
@@ -249,8 +243,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
         # Adding tag for directory path.
         type_of_num_spkr = "oracle" if params["oracle_n_spkrs"] else "est"
         tag = (
-            type_of_num_spkr
-            + "_"
+            f"{type_of_num_spkr}_"
             + str(params["affinity"])
             + "_"
             + params["backend"]
@@ -260,21 +253,14 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
         )
         if not os.path.exists(out_rttm_dir):
             os.makedirs(out_rttm_dir)
-        out_rttm_file = out_rttm_dir + "/" + rec_id + ".rttm"
+        out_rttm_file = f"{out_rttm_dir}/{rec_id}.rttm"
 
         # Processing starts from here.
         if params["oracle_n_spkrs"] is True:
             # Oracle num of speakers.
             num_spkrs = diar.get_oracle_num_spkrs(rec_id, spkr_info)
         else:
-            if params["affinity"] == "nn":
-                # Num of speakers tunned on dev set (only for nn affinity).
-                num_spkrs = n_lambdas
-            else:
-                # Num of speakers will be estimated using max eigen gap for cos based affinity.
-                # So adding None here. Will use this None later-on.
-                num_spkrs = None
-
+            num_spkrs = n_lambdas if params["affinity"] == "nn" else None
         if params["backend"] == "kmeans":
             diar.do_kmeans_clustering(
                 diary_obj, out_rttm_file, rec_id, num_spkrs, pval,
@@ -300,19 +286,16 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
 
     # Once all RTTM outputs are generated, concatenate individual RTTM files to obtain single RTTM file.
     # This is not needed but just staying with the standards.
-    concate_rttm_file = out_rttm_dir + "/sys_output.rttm"
+    concate_rttm_file = f"{out_rttm_dir}/sys_output.rttm"
     logger.debug("Concatenating individual RTTM files...")
     with open(concate_rttm_file, "w") as cat_file:
-        for f in glob.glob(out_rttm_dir + "/*.rttm"):
+        for f in glob.glob(f"{out_rttm_dir}/*.rttm"):
             if f == concate_rttm_file:
                 continue
             with open(f, "r") as indi_rttm_file:
                 shutil.copyfileobj(indi_rttm_file, cat_file)
 
-    msg = "The system generated RTTM file for %s set : %s" % (
-        split_type,
-        concate_rttm_file,
-    )
+    msg = f"The system generated RTTM file for {split_type} set : {concate_rttm_file}"
     logger.debug(msg)
 
     return concate_rttm_file
@@ -349,10 +332,7 @@ def dev_pval_tuner(full_meta, split_type):
             # p_val is needed in oracle_n_spkr=False when using kmeans backend.
             break
 
-    # Take p_val that gave minmum DER on Dev dataset.
-    tuned_p_val = prange[DER_list.index(min(DER_list))]
-
-    return tuned_p_val
+    return prange[DER_list.index(min(DER_list))]
 
 
 def dev_ahc_threshold_tuner(full_meta, split_type):
@@ -384,10 +364,7 @@ def dev_ahc_threshold_tuner(full_meta, split_type):
         if params["oracle_n_spkrs"] is True:
             break  # no need of threshold search.
 
-    # Take p_val that gave minmum DER on Dev dataset.
-    tuned_p_val = prange[DER_list.index(min(DER_list))]
-
-    return tuned_p_val
+    return prange[DER_list.index(min(DER_list))]
 
 
 def dev_nn_tuner(full_meta, split_type):
@@ -454,10 +431,7 @@ def dev_tuner(full_meta, split_type):
 
         DER_list.append(DER_)
 
-    # Take n_lambdas with minmum DER.
-    tuned_n_lambdas = DER_list.index(min(DER_list)) + 1
-
-    return tuned_n_lambdas
+    return DER_list.index(min(DER_list)) + 1
 
 
 def dataio_prep(hparams, json_file):
@@ -565,11 +539,10 @@ if __name__ == "__main__":  # noqa: C901
     with open(dev_meta_file, "r") as f:
         meta_dev = json.load(f)
 
-    full_meta = meta_dev
-
     # Processing starts from here
     # Following few lines selects option for different backend and affinity matrices. Finds best values for hyperameters using dev set.
     best_nn = None
+    full_meta = meta_dev
     if params["affinity"] == "nn":
         logger.info("Tuning for nn (Multiple iterations over AMI Dev set)")
         best_nn = dev_nn_tuner(full_meta, "dev")
@@ -577,9 +550,7 @@ if __name__ == "__main__":  # noqa: C901
     n_lambdas = None
     best_pval = None
 
-    if params["affinity"] == "cos" and (
-        params["backend"] == "SC" or params["backend"] == "kmeans"
-    ):
+    if params["affinity"] == "cos" and params["backend"] in ["SC", "kmeans"]:
         # oracle num_spkrs or not, doesn't matter for kmeans and SC backends
         # cos: Tune for the best pval for SC /kmeans (for unknown num of spkrs)
         logger.info(
@@ -591,15 +562,13 @@ if __name__ == "__main__":  # noqa: C901
         logger.info("Tuning for threshold-value for AHC")
         best_threshold = dev_ahc_threshold_tuner(full_meta, "dev")
         best_pval = best_threshold
-    else:
-        # NN for unknown num of speakers (can be used in future)
-        if params["oracle_n_spkrs"] is False:
-            # nn: Tune num of number of components (to be updated later)
-            logger.info(
-                "Tuning for number of eigen components for NN (Multiple iterations over AMI Dev set)"
-            )
-            # dev_tuner used for tuning num of components in NN. Can be used in future.
-            n_lambdas = dev_tuner(full_meta, "dev")
+    elif params["oracle_n_spkrs"] is False:
+        # nn: Tune num of number of components (to be updated later)
+        logger.info(
+            "Tuning for number of eigen components for NN (Multiple iterations over AMI Dev set)"
+        )
+        # dev_tuner used for tuning num of components in NN. Can be used in future.
+        n_lambdas = dev_tuner(full_meta, "dev")
 
     # Load 'dev' and 'eval' metadata files.
     full_meta_dev = full_meta  # current full_meta is for 'dev'
@@ -613,8 +582,7 @@ if __name__ == "__main__":  # noqa: C901
     # Tag to be appended to final output DER files. Writing DER for individual files.
     type_of_num_spkr = "oracle" if params["oracle_n_spkrs"] else "est"
     tag = (
-        type_of_num_spkr
-        + "_"
+        f"{type_of_num_spkr}_"
         + str(params["affinity"])
         + "."
         + params["mic_type"]
@@ -623,13 +591,9 @@ if __name__ == "__main__":  # noqa: C901
     # Perform final diarization on 'dev' and 'eval' with best hyperparams.
     final_DERs = {}
     for split_type in ["dev", "eval"]:
-        if split_type == "dev":
-            full_meta = full_meta_dev
-        else:
-            full_meta = full_meta_eval
-
+        full_meta = full_meta_dev if split_type == "dev" else full_meta_eval
         # Performing diarization.
-        msg = "Diarizing using best hyperparams: " + split_type + " set"
+        msg = f"Diarizing using best hyperparams: {split_type} set"
         logger.info(msg)
         out_boundaries = diarize_dataset(
             full_meta,
@@ -640,10 +604,10 @@ if __name__ == "__main__":  # noqa: C901
         )
 
         # Computing DER.
-        msg = "Computing DERs for " + split_type + " set"
+        msg = f"Computing DERs for {split_type} set"
         logger.info(msg)
         ref_rttm = os.path.join(
-            params["ref_rttm_dir"], "fullref_ami_" + split_type + ".rttm"
+            params["ref_rttm_dir"], f"fullref_ami_{split_type}.rttm"
         )
         sys_rttm = out_boundaries
         [MS, FA, SER, DER_vals] = DER(
@@ -655,16 +619,14 @@ if __name__ == "__main__":  # noqa: C901
         )
 
         # Writing DER values to a file. Append tag.
-        der_file_name = split_type + "_DER_" + tag
+        der_file_name = f"{split_type}_DER_{tag}"
         out_der_file = os.path.join(params["der_dir"], der_file_name)
-        msg = "Writing DER file to: " + out_der_file
+        msg = f"Writing DER file to: {out_der_file}"
         logger.info(msg)
         diar.write_ders_file(ref_rttm, DER_vals, out_der_file)
 
-        msg = (
-            "AMI "
-            + split_type
-            + " set DER = %s %%\n" % (str(round(DER_vals[-1], 2)))
+        msg = f"AMI {split_type}" + " set DER = %s %%\n" % (
+            str(round(DER_vals[-1], 2))
         )
         logger.info(msg)
         final_DERs[split_type] = round(DER_vals[-1], 2)

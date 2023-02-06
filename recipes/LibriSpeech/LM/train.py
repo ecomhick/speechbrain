@@ -30,17 +30,15 @@ class LM(sb.core.Brain):
         batch = batch.to(self.device)
         tokens_bos, _ = batch.tokens_bos
         logits = self.hparams.model(tokens_bos)
-        pred = self.hparams.log_softmax(logits)
-        return pred
+        return self.hparams.log_softmax(logits)
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given predictions and targets."""
         batch = batch.to(self.device)
         tokens_eos, tokens_len = batch.tokens_eos
-        loss = self.hparams.compute_cost(
+        return self.hparams.compute_cost(
             predictions, tokens_eos, length=tokens_len
         )
-        return loss
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
@@ -57,10 +55,11 @@ class LM(sb.core.Brain):
             self.optimizer.zero_grad()
 
             if isinstance(
-                self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
-            ) or isinstance(
                 self.hparams.lr_annealing,
-                sb.nnet.schedulers.CyclicCosineScheduler,
+                (
+                    sb.nnet.schedulers.NoamScheduler,
+                    sb.nnet.schedulers.CyclicCosineScheduler,
+                ),
             ):
                 self.hparams.lr_annealing(self.optimizer)
 
@@ -75,11 +74,11 @@ class LM(sb.core.Brain):
         if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
             if not (
                 isinstance(
-                    self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
-                )
-                or isinstance(
                     self.hparams.lr_annealing,
-                    sb.nnet.schedulers.CyclicCosineScheduler,
+                    (
+                        sb.nnet.schedulers.NoamScheduler,
+                        sb.nnet.schedulers.CyclicCosineScheduler,
+                    ),
                 )
             ):
                 old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
@@ -150,10 +149,8 @@ def dataio_prepare(hparams):
     def text_pipeline(text):
         yield text
         tokens_list = tokenizer.encode_as_ids(text)
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
+        yield torch.LongTensor([hparams["bos_index"]] + (tokens_list))
+        yield torch.LongTensor(tokens_list + [hparams["eos_index"]])
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 

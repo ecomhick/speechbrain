@@ -41,10 +41,8 @@ class SpeakerBrain(sb.core.Brain):
         if stage == sb.Stage.TRAIN and self.hparams.apply_data_augmentation:
 
             # Applying the augmentation pipeline
-            wavs_aug_tot = []
-            wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline):
-
+            wavs_aug_tot = [wavs]
+            for augment in self.hparams.augment_pipeline:
                 # Apply augment
                 wavs_aug = augment(wavs, lens)
 
@@ -192,8 +190,7 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.provides("command", "command_encoded")
     def label_pipeline(command):
         yield command
-        command_encoded = label_encoder.encode_sequence_torch([command])
-        yield command_encoded
+        yield label_encoder.encode_sequence_torch([command])
 
     sb.dataio.dataset.add_dynamic_item(datasets, label_pipeline)
 

@@ -101,9 +101,9 @@ def prepare_switchboard(
         logger.info("Data preparation skipped manually via hparams")
         return
 
-    filenames = []
-    for split in splits:
-        filenames.append(os.path.join(save_folder, str(split + ".csv")))
+    filenames = [
+        os.path.join(save_folder, str(f"{split}.csv")) for split in splits
+    ]
     if add_fisher_corpus:
         filenames.append(os.path.join(save_folder, "train_lm.csv"))
     filenames.append(os.path.join(save_folder, "test.csv"))
@@ -192,7 +192,7 @@ def maybe_merge_files(merge_name, merge_lst: list):
     """
     if len(merge_lst) > 1:
         if merge_name is not None and len(merge_name) > 0:
-            merge_files = [data_split + ".csv" for data_split in merge_lst]
+            merge_files = [f"{data_split}.csv" for data_split in merge_lst]
             merge_csvs(
                 data_folder=save_folder,
                 csv_lst=merge_files,
@@ -261,10 +261,7 @@ def skip(*filenames):
         if True, the preparation phase can be skipped.
         if False, preparation must be done.
     """
-    for filename in filenames:
-        if not os.path.isfile(filename):
-            return False
-    return True
+    return all(os.path.isfile(filename) for filename in filenames)
 
 
 def filter_text(
@@ -361,7 +358,7 @@ def match_swbd1(text):
 
         # e.g. -[AN]Y -> -Y
         m = re.match(r"^(|-)\[[^][]+\](.+)$", token)
-        token = "-" + m.group(2) if m else token
+        token = f"-{m[2]}" if m else token
 
         # e.g. AB[SOLUTE]- -> AB-;
         m = re.match(r"^(.+)\[[^][]+\](|-)$", token)
@@ -369,15 +366,15 @@ def match_swbd1(text):
 
         # e.g. EX[SPECIALLY]-/ESPECIALLY] -> EX
         m = re.match(r"([^][]+)\[.+\]$", token)
-        token = m.group(1) if m else token
+        token = m[1] if m else token
 
         # e.g. {YUPPIEDOM} -> YUPPIEDOM
         m = re.match(r"^\{(.+)\}$", token)
-        token = m.group(1) if m else token
+        token = m[1] if m else token
 
         # e.g. AMMU[N]IT- -> AMMU-IT
         m = re.match(r"(\w+)\[([^][])+\](\w+)", token)
-        token = m.group(1) + "-" + m.group(3) if m else token
+        token = f"{m[1]}-{m[3]}" if m else token
 
         # e.g. THEM_1 -> THEM
         token = re.sub(r"_\d+$", "", token)
@@ -588,122 +585,115 @@ def make_acronym_map(save_folder, lexicon_file, acronym_map_file):
     logger.info(
         f"Prepared Swbd1 + MSU single letter lexicon with {len(fin_lex)} entries"
     )
-    fout_map = open(acronym_map_file, "w")
+    with open(acronym_map_file, "w") as fout_map:
+        # Initialise single letter dictionary
+        dict_letter = {}
+        for single_letter_lex in msu_single_letter:
+            items = single_letter_lex.split()
+            dict_letter[items[0]] = single_letter_lex[len(items[0]) + 1 :].strip()
 
-    # Initialise single letter dictionary
-    dict_letter = {}
-    for single_letter_lex in msu_single_letter:
-        items = single_letter_lex.split()
-        dict_letter[items[0]] = single_letter_lex[len(items[0]) + 1 :].strip()
-
-    for lex in fin_lex:
-        items = lex.split()
-        word = items[0]
-        lexicon = lex[len(items[0]) + 1 :].strip()
-        # find acronyms from words with only letters and '
-        pre_match = re.match(r"^[A-Za-z]+$|^[A-Za-z]+\'s$|^[A-Za-z]+s$", word)
-        if pre_match:
-            # find if words in the form of xxx's is acronym
-            if word[-2:] == "'s" and (lexicon[-1] == "s" or lexicon[-1] == "z"):
-                actual_word = word[:-2]
-                actual_lexicon = lexicon[:-2]
-                acronym_lexicon = ""
-                for w in actual_word:
-                    acronym_lexicon = (
-                        acronym_lexicon + dict_letter[w.upper()] + " "
-                    )
-                if acronym_lexicon.strip() == actual_lexicon:
-                    acronym_mapped = ""
-                    acronym_mapped_back = ""
-                    for w in actual_word[:-1]:
-                        acronym_mapped = acronym_mapped + w.lower() + "._"
-                        acronym_mapped_back = (
-                            acronym_mapped_back + w.lower() + " "
+        for lex in fin_lex:
+            items = lex.split()
+            word = items[0]
+            lexicon = lex[len(items[0]) + 1 :].strip()
+            if pre_match := re.match(
+                r"^[A-Za-z]+$|^[A-Za-z]+\'s$|^[A-Za-z]+s$", word
+            ):
+                            # find if words in the form of xxx's is acronym
+                if word[-2:] == "'s" and lexicon[-1] in ["s", "z"]:
+                    actual_word = word[:-2]
+                    actual_lexicon = lexicon[:-2]
+                    acronym_lexicon = ""
+                    for w in actual_word:
+                        acronym_lexicon = (
+                            acronym_lexicon + dict_letter[w.upper()] + " "
                         )
-                    acronym_mapped = (
-                        acronym_mapped + actual_word[-1].lower() + ".'s"
-                    )
-                    acronym_mapped_back = (
-                        acronym_mapped_back + actual_word[-1].lower() + "'s"
-                    )
-                    fout_map.write(
-                        word
-                        + "\t"
-                        + acronym_mapped
-                        + "\t"
-                        + acronym_mapped_back
-                        + "\n"
-                    )
-
-            # find if words in the form of xxxs is acronym
-            elif word[-1] == "s" and (lexicon[-1] == "s" or lexicon[-1] == "z"):
-                actual_word = word[:-1]
-                actual_lexicon = lexicon[:-2]
-                acronym_lexicon = ""
-                for w in actual_word:
-                    acronym_lexicon = (
-                        acronym_lexicon + dict_letter[w.upper()] + " "
-                    )
-                if acronym_lexicon.strip() == actual_lexicon:
-                    acronym_mapped = ""
-                    acronym_mapped_back = ""
-                    for w in actual_word[:-1]:
-                        acronym_mapped = acronym_mapped + w.lower() + "._"
-                        acronym_mapped_back = (
-                            acronym_mapped_back + w.lower() + " "
+                    if acronym_lexicon.strip() == actual_lexicon:
+                        acronym_mapped = ""
+                        acronym_mapped_back = ""
+                        for w in actual_word[:-1]:
+                            acronym_mapped = acronym_mapped + w.lower() + "._"
+                            acronym_mapped_back = (
+                                acronym_mapped_back + w.lower() + " "
+                            )
+                        acronym_mapped = (
+                            acronym_mapped + actual_word[-1].lower() + ".'s"
                         )
-                    acronym_mapped = (
-                        acronym_mapped + actual_word[-1].lower() + ".s"
-                    )
-                    acronym_mapped_back = (
-                        acronym_mapped_back + actual_word[-1].lower() + "'s"
-                    )
-                    fout_map.write(
-                        word
-                        + "\t"
-                        + acronym_mapped
-                        + "\t"
-                        + acronym_mapped_back
-                        + "\n"
-                    )
-
-            # find if words in the form of xxx (not ended with 's or s) is acronym
-            elif word.find("'") == -1 and word[-1] != "s":
-                acronym_lexicon = ""
-                for w in word:
-                    acronym_lexicon = (
-                        acronym_lexicon + dict_letter[w.upper()] + " "
-                    )
-                if acronym_lexicon.strip() == lexicon:
-                    acronym_mapped = ""
-                    acronym_mapped_back = ""
-                    for w in word[:-1]:
-                        acronym_mapped = acronym_mapped + w.lower() + "._"
                         acronym_mapped_back = (
-                            acronym_mapped_back + w.lower() + " "
+                            acronym_mapped_back + actual_word[-1].lower() + "'s"
                         )
-                    acronym_mapped = acronym_mapped + word[-1].lower() + "."
-                    acronym_mapped_back = acronym_mapped_back + word[-1].lower()
-                    fout_map.write(
-                        word
-                        + "\t"
-                        + acronym_mapped
-                        + "\t"
-                        + acronym_mapped_back
-                        + "\n"
-                    )
+                        fout_map.write(
+                            word
+                            + "\t"
+                            + acronym_mapped
+                            + "\t"
+                            + acronym_mapped_back
+                            + "\n"
+                        )
 
-    fout_map.close()
+                elif word[-1] == "s" and lexicon[-1] in ["s", "z"]:
+                    actual_word = word[:-1]
+                    actual_lexicon = lexicon[:-2]
+                    acronym_lexicon = ""
+                    for w in actual_word:
+                        acronym_lexicon = (
+                            acronym_lexicon + dict_letter[w.upper()] + " "
+                        )
+                    if acronym_lexicon.strip() == actual_lexicon:
+                        acronym_mapped = ""
+                        acronym_mapped_back = ""
+                        for w in actual_word[:-1]:
+                            acronym_mapped = acronym_mapped + w.lower() + "._"
+                            acronym_mapped_back = (
+                                acronym_mapped_back + w.lower() + " "
+                            )
+                        acronym_mapped = (
+                            acronym_mapped + actual_word[-1].lower() + ".s"
+                        )
+                        acronym_mapped_back = (
+                            acronym_mapped_back + actual_word[-1].lower() + "'s"
+                        )
+                        fout_map.write(
+                            word
+                            + "\t"
+                            + acronym_mapped
+                            + "\t"
+                            + acronym_mapped_back
+                            + "\n"
+                        )
 
-    # Load acronym map for further processing
-    fin_map = open(acronym_map_file, "r")
-    dict_acronym = {}
-    dict_acronym_noi = {}  # Mapping of acronyms without I, i
-    for pair in fin_map:
-        items = pair.split("\t")
-        dict_acronym[items[0]] = items[1]
-        dict_acronym_noi[items[0]] = items[1]
-    fin_map.close()
+                elif word.find("'") == -1 and word[-1] != "s":
+                    acronym_lexicon = ""
+                    for w in word:
+                        acronym_lexicon = (
+                            acronym_lexicon + dict_letter[w.upper()] + " "
+                        )
+                    if acronym_lexicon.strip() == lexicon:
+                        acronym_mapped = ""
+                        acronym_mapped_back = ""
+                        for w in word[:-1]:
+                            acronym_mapped = acronym_mapped + w.lower() + "._"
+                            acronym_mapped_back = (
+                                acronym_mapped_back + w.lower() + " "
+                            )
+                        acronym_mapped = acronym_mapped + word[-1].lower() + "."
+                        acronym_mapped_back = acronym_mapped_back + word[-1].lower()
+                        fout_map.write(
+                            word
+                            + "\t"
+                            + acronym_mapped
+                            + "\t"
+                            + acronym_mapped_back
+                            + "\n"
+                        )
+
+    with open(acronym_map_file, "r") as fin_map:
+        dict_acronym = {}
+        dict_acronym_noi = {}  # Mapping of acronyms without I, i
+        for pair in fin_map:
+            items = pair.split("\t")
+            dict_acronym[items[0]] = items[1]
+            dict_acronym_noi[items[0]] = items[1]
     del dict_acronym_noi["I"]
     del dict_acronym_noi["i"]
 
@@ -759,7 +749,7 @@ def map_acronyms(dict_acronym, dict_acronym_noi, transcription):
             items[i] = dict_acronym_noi[items[i]]
     sentence = " ".join(items[1:])
 
-    return items[0] + " " + sentence
+    return f"{items[0]} {sentence}"
 
 
 def make_name_to_disk_dict(mapping_table: str):
@@ -844,7 +834,7 @@ def swbd1_data_prep(
     )
 
     assert len(splits) == len(split_ratio)
-    if sum(split_ratio) != 100 and sum(split_ratio) != 1:
+    if sum(split_ratio) not in [100, 1]:
         error_msg = (
             "Implausible split ratios! Make sure they equal to 1 (or 100)."
         )
@@ -903,7 +893,7 @@ def swbd1_data_prep(
                     channel = id.split("-")[0][-1]
                     wav_name = id.split("-")[0][:6] + ".sph"
                     spk_id = wav_name.replace(".sph", channel)
-                    wav_name = wav_name.replace(wav_name[0:2], "sw0")
+                    wav_name = wav_name.replace(wav_name[:2], "sw0")
                     disk = name2disk[wav_name]
 
                     wav_path = os.path.join(
@@ -945,7 +935,7 @@ def swbd1_data_prep(
                         if add_fisher_corpus and i == 0:
                             swbd_train_lines.append([id, cleaned_transcription])
         # Setting path for the csv file
-        csv_file = os.path.join(save_folder, str(split + ".csv"))
+        csv_file = os.path.join(save_folder, str(f"{split}.csv"))
         logger.info(f"Creating csv file {csv_file}")
 
         write_csv(csv_file, csv_lines, utt_id_idx=6, max_utt=max_utt)
@@ -1003,10 +993,10 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
             str_split = [i for i in str_split if len(i) > 0]
 
             # Make ID unique
-            id = str_split[2].strip() + "_" + str(utt_count)
+            id = f"{str_split[2].strip()}_{str(utt_count)}"
             channel = str_split[1].strip()
 
-            wav_name = str_split[0].strip() + ".sph"
+            wav_name = f"{str_split[0].strip()}.sph"
             wav_path = os.path.join(audio_folder, wav_name)
 
             spk_id = str_split[2].strip()
@@ -1197,8 +1187,6 @@ def fisher_data_prep(data_folder, save_folder):
                     if line.startswith("#") or len(line.strip()) < 1:
                         continue
 
-                    # Create unique id
-                    id = "fisher-" + str(utt_count)
                     transcription = line.split()[3:]
                     transcription = " ".join(transcription)
                     transcription_clean = filter_text(
@@ -1213,6 +1201,8 @@ def fisher_data_prep(data_folder, save_folder):
 
                     # Skip empty transcriptions
                     if len(transcription_clean) > 0:
+                                            # Create unique id
+                        id = f"fisher-{str(utt_count)}"
                         csv_lines.append([id, transcription_clean])
                         utt_count += 1
             # This is just for accounting

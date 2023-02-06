@@ -115,13 +115,13 @@ def prepare_dvoice(
     # If csv already exists, we skip the data preparation
     if skip(save_csv_train, save_csv_dev, save_csv_test):
 
-        msg = "%s already exists, skipping data preparation!" % (save_csv_train)
+        msg = f"{save_csv_train} already exists, skipping data preparation!"
         logger.info(msg)
 
-        msg = "%s already exists, skipping data preparation!" % (save_csv_dev)
+        msg = f"{save_csv_dev} already exists, skipping data preparation!"
         logger.info(msg)
 
-        msg = "%s already exists, skipping data preparation!" % (save_csv_test)
+        msg = f"{save_csv_test} already exists, skipping data preparation!"
         logger.info(msg)
 
         return
@@ -199,15 +199,14 @@ def alffa_public_prepare(language, data_folder):
                 duration = info.num_frames / info.sample_rate
                 dic = {
                     "wav": wavs[j].replace(data_folder + "/", ""),
-                    "words": str(words).replace("\n", ""),
+                    "words": words.replace("\n", ""),
                     "duration": duration,
                 }
                 data.append(dic)
                 break
 
     random.shuffle(data)
-    df = pd.DataFrame(data)
-    return df
+    return pd.DataFrame(data)
 
 
 def swahili_prepare(data_folder):
@@ -245,12 +244,11 @@ def swahili_prepare(data_folder):
     for i in tqdm(range(len(text_alffa))):
         if "\t" in text_alffa[i]:
             text_alffa[i] = text_alffa[i].split("\t")
-            file_name = text_alffa[i][0]
             words = text_alffa[i][1]
         else:
             text_alffa[i] = text_alffa[i].split(" ")
-            file_name = text_alffa[i][0]
             words = " ".join(text_alffa[i][1:])
+        file_name = text_alffa[i][0]
         for j in range(len(wavs_alffa)):
             if wavs_alffa[j].split("/")[-1] == file_name + ".wav":
                 wav = wavs_alffa[j]
@@ -266,8 +264,7 @@ def swahili_prepare(data_folder):
 
     text_alffa = pd.DataFrame(data_alffa)
 
-    df = pd.concat([text_dvoice, text_alffa], ignore_index=True)
-    return df
+    return pd.concat([text_dvoice, text_alffa], ignore_index=True)
 
 
 def train_validate_test_split(
@@ -295,17 +292,13 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
         if False, it must be done.
     """
 
-    # Checking folders and save options
-    skip = False
-
-    if (
-        os.path.isfile(save_csv_train)
-        and os.path.isfile(save_csv_dev)
-        and os.path.isfile(save_csv_test)
-    ):
-        skip = True
-
-    return skip
+    return bool(
+        (
+            os.path.isfile(save_csv_train)
+            and os.path.isfile(save_csv_dev)
+            and os.path.isfile(save_csv_test)
+        )
+    )
 
 
 def create_csv(
@@ -340,17 +333,16 @@ def create_csv(
     # We load and skip the header
     loaded_csv = open(orig_csv_file, "r").readlines()[1:]
     nb_samples = str(len(loaded_csv))
-    msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
+    msg = f"Preparing CSV files for {nb_samples} samples ..."
     logger.info(msg)
 
     # Adding some Prints
-    msg = "Creating csv lists in %s ..." % (csv_file)
+    msg = f"Creating csv lists in {csv_file} ..."
     logger.info(msg)
-
-    csv_lines = [["ID", "duration", "wav", "spk_id", "wrd"]]
 
     # Start processing lines
     total_duration = 0.0
+    csv_lines = [["ID", "duration", "wav", "spk_id", "wrd"]]
     for line in tzip(loaded_csv):
         line = line[0]
         # Path is at indice 1 in DVoice csv files. And .mp3 files
@@ -358,11 +350,7 @@ def create_csv(
         ALFFA_LANGUAGES = ["amharic", "fongbe"]
         if language in ALFFA_LANGUAGES:
             mp3_path = line.split("\t")[0]
-        elif (
-            language == "multilingual"
-            or language == "swahili"
-            or language == "wolof"
-        ):
+        elif language in ["multilingual", "swahili", "wolof"]:
             mp3_path = data_folder + "/" + line.split("\t")[0]
         else:
             mp3_path = data_folder + "/wavs/" + line.split("\t")[0]
@@ -394,12 +382,7 @@ def create_csv(
             HAMZA = "\u0621"
             ALEF_MADDA = "\u0622"
             ALEF_HAMZA_ABOVE = "\u0623"
-            letters = (
-                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ"
-                + HAMZA
-                + ALEF_MADDA
-                + ALEF_HAMZA_ABOVE
-            )
+            letters = f"ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ{HAMZA}{ALEF_MADDA}{ALEF_HAMZA_ABOVE}"
             words = re.sub("[^" + letters + "]+", " ", words).upper()
 
         # # Remove accents if specified
@@ -438,11 +421,11 @@ def create_csv(
             csv_writer.writerow(line)
 
     # Final prints
-    msg = "%s successfully created!" % (csv_file)
+    msg = f"{csv_file} successfully created!"
     logger.info(msg)
-    msg = "Number of samples: %s " % (str(len(loaded_csv)))
+    msg = f"Number of samples: {len(loaded_csv)} "
     logger.info(msg)
-    msg = "Total duration: %s Hours" % (str(round(total_duration / 3600, 2)))
+    msg = f"Total duration: {str(round(total_duration / 3600, 2))} Hours"
     logger.info(msg)
 
 

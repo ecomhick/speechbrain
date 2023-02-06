@@ -39,17 +39,15 @@ class SLU(sb.Brain):
         logits = self.hparams.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
-        # Compute outputs
         if (
             stage == sb.Stage.TRAIN
             and self.batch_count % show_results_every != 0
         ):
             return p_seq, transcript_tokens_lens
-        else:
-            p_tokens, scores = self.hparams.beam_searcher(
-                encoder_out, transcript_tokens_lens
-            )
-            return p_seq, transcript_tokens_lens, p_tokens
+        p_tokens, scores = self.hparams.beam_searcher(
+            encoder_out, transcript_tokens_lens
+        )
+        return p_seq, transcript_tokens_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
@@ -236,34 +234,28 @@ def dataio_prepare(hparams):
     def transcript_pipeline(transcript):
         yield transcript
         transcript_tokens_list = asr_tokenizer.encode_as_ids(transcript)
-        transcript_tokens = torch.LongTensor(transcript_tokens_list)
-        yield transcript_tokens
+        yield torch.LongTensor(transcript_tokens_list)
 
     sb.dataio.dataset.add_dynamic_item(datasets, transcript_pipeline)
 
     # 3. Define output pipeline:
     @sb.utils.data_pipeline.takes("semantics")
     @sb.utils.data_pipeline.provides(
-        "semantics",
-        "semantics_token_list",
-        "semantics_tokens_bos",
-        "semantics_tokens_eos",
-        "semantics_tokens",
-    )
+            "semantics",
+            "semantics_token_list",
+            "semantics_tokens_bos",
+            "semantics_tokens_eos",
+            "semantics_tokens",
+        )
     def semantics_pipeline(semantics):
         yield semantics
         semantics_tokens_list = slu_tokenizer.encode_as_ids(semantics)
         yield semantics_tokens_list
-        semantics_tokens_bos = torch.LongTensor(
+        yield torch.LongTensor(
             [hparams["bos_index"]] + (semantics_tokens_list)
         )
-        yield semantics_tokens_bos
-        semantics_tokens_eos = torch.LongTensor(
-            semantics_tokens_list + [hparams["eos_index"]]
-        )
-        yield semantics_tokens_eos
-        semantics_tokens = torch.LongTensor(semantics_tokens_list)
-        yield semantics_tokens
+        yield torch.LongTensor(semantics_tokens_list + [hparams["eos_index"]])
+        yield torch.LongTensor(semantics_tokens_list)
 
     sb.dataio.dataset.add_dynamic_item(datasets, semantics_pipeline)
 
@@ -354,10 +346,7 @@ if __name__ == "__main__":
 
     # Test
     print("Creating id_to_file mapping...")
-    id_to_file = {}
     df = pd.read_csv(hparams["csv_test"])
-    for i in range(len(df)):
-        id_to_file[str(df.ID[i])] = df.wav[i].split("/")[-1]
-
+    id_to_file = {str(df.ID[i]): df.wav[i].split("/")[-1] for i in range(len(df))}
     slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
     slu_brain.evaluate(test_set, test_loader_kwargs=hparams["dataloader_opts"])

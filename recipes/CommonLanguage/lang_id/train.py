@@ -221,15 +221,14 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.provides("language", "language_encoded")
     def label_pipeline(language):
         yield language
-        language_encoded = language_encoder.encode_label_torch(language)
-        yield language_encoded
+        yield language_encoder.encode_label_torch(language)
 
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.
     datasets = {}
     for dataset in ["train", "dev", "test"]:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=os.path.join(hparams["save_folder"], dataset + ".csv"),
+            csv_path=os.path.join(hparams["save_folder"], f"{dataset}.csv"),
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, label_pipeline],
             output_keys=["id", "sig", "language_encoded"],

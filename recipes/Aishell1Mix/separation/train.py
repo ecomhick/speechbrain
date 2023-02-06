@@ -21,6 +21,7 @@ Authors
  * Jianyuan Zhong 2020
 """
 
+
 import os
 import sys
 import speechbrain as sb
@@ -104,18 +105,14 @@ if __name__ == "__main__":
                         "regex": "**/*.wav",
                     },
                 )
-                # adjust the base_folder_dm path
-                hparams["base_folder_dm"] = (
-                    os.path.normpath(hparams["base_folder_dm"]) + "_processed"
-                )
             else:
                 print(
                     "Using the existing processed folder on the same directory as base_folder_dm"
                 )
-                hparams["base_folder_dm"] = (
-                    os.path.normpath(hparams["base_folder_dm"]) + "_processed"
-                )
-
+            # adjust the base_folder_dm path
+            hparams["base_folder_dm"] = (
+                os.path.normpath(hparams["base_folder_dm"]) + "_processed"
+            )
         # Colleting the hparams for dynamic batching
         dm_hparams = {
             "train_data": hparams["train_data"],
